@@ -1,5 +1,5 @@
-use crate::constants::TOKEN_PROGRAM_ID;
-use crate::types::launchpad_v_7::{Launch, LaunchState};
+use crate::common::constants::TOKEN_PROGRAM_ID;
+use crate::common::types::launchpad_v_7::{Launch, LaunchState};
 use crate::FuzzTest;
 use trident_fuzz::fuzzing::Pubkey;
 

@@ -1,9 +1,10 @@
-use crate::types::price_based_performance_package::*;
-use crate::types::*;
+use crate::common::types::price_based_performance_package;
+use crate::common::types::price_based_performance_package::*;
 use crate::FuzzTest;
 use trident_fuzz::fuzzing::*;
 
-use crate::constants::*;
+use crate::common::constants::*;
+use crate::common::pda::get_event_authority_pda;
 
 impl FuzzTest {
     pub fn initialize_performance_package(
@@ -19,7 +20,7 @@ impl FuzzTest {
         message: Option<&str>,
     ) {
         let event_authority =
-            self.get_event_authority_pda(price_based_performance_package::program_id());
+            get_event_authority_pda(&mut self.trident, price_based_performance_package::program_id());
 
         // Capture pre-state for invariants
         let args_for_invariants = args.clone();
@@ -95,6 +96,9 @@ impl FuzzTest {
             .get_account_with_type::<PerformancePackage>(&performance_package, Some(8))
             .expect("PerformancePackage must exist before ChangePerformancePackageAuthority");
 
+        let event_authority =
+            get_event_authority_pda(&mut self.trident, price_based_performance_package::program_id());
+
         // Setup instruction
         let change_performance_package_authority = price_based_performance_package::ChangePerformancePackageAuthorityInstruction::data(
             price_based_performance_package::ChangePerformancePackageAuthorityInstructionData::new(
@@ -104,6 +108,8 @@ impl FuzzTest {
         .accounts(price_based_performance_package::ChangePerformancePackageAuthorityInstructionAccounts::new(
             performance_package,
             current_authority,
+            event_authority,
+            price_based_performance_package::program_id(),
         ))
         .instruction();
 
@@ -134,7 +140,7 @@ impl FuzzTest {
         message: Option<&str>,
     ) {
         let event_authority =
-            self.get_event_authority_pda(price_based_performance_package::program_id());
+            get_event_authority_pda(&mut self.trident, price_based_performance_package::program_id());
 
         // Capture pre-state for invariants
         let args_for_invariants = args.clone();
@@ -195,6 +201,9 @@ impl FuzzTest {
             .get_account_with_type::<ChangeRequest>(&change_request, Some(8))
             .expect("ChangeRequest must exist before ExecuteChange");
 
+        let event_authority =
+            get_event_authority_pda(&mut self.trident, price_based_performance_package::program_id());
+
         // Setup instruction
         let execute_change = price_based_performance_package::ExecuteChangeInstruction::data(
             price_based_performance_package::ExecuteChangeInstructionData::new(),
@@ -204,6 +213,8 @@ impl FuzzTest {
                 change_request,
                 performance_package,
                 executor,
+                event_authority,
+                price_based_performance_package::program_id(),
             ),
         )
         .instruction();
@@ -232,10 +243,9 @@ impl FuzzTest {
         message: Option<&str>,
     ) {
         let event_authority =
-            self.get_event_authority_pda(price_based_performance_package::program_id());
+            get_event_authority_pda(&mut self.trident, price_based_performance_package::program_id());
 
         // Capture pre-state for invariants
-        let timestamp_before_tx = self.trident.get_current_timestamp();
         let pre_pp = self
             .trident
             .get_account_with_type::<PerformancePackage>(&performance_package, Some(8))
@@ -275,7 +285,6 @@ impl FuzzTest {
             recipient,
             &pre_pp,
             pre_vault_amount,
-            timestamp_before_tx,
         );
     }
 
@@ -291,7 +300,7 @@ impl FuzzTest {
         message: Option<&str>,
     ) {
         let event_authority =
-            self.get_event_authority_pda(price_based_performance_package::program_id());
+            get_event_authority_pda(&mut self.trident, price_based_performance_package::program_id());
 
         // Capture pre-state for invariants
         let timestamp_before_tx = self.trident.get_current_timestamp();

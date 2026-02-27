@@ -1,6 +1,6 @@
-use crate::constants::{PERFORMANCE_PACKAGE_SEED_PREFIX, TOKEN_PROGRAM_ID};
-use crate::types::launchpad_v_7::{Launch, LaunchState};
-use crate::types::price_based_performance_package::{
+use crate::common::constants::{PERFORMANCE_PACKAGE_SEED_PREFIX, TOKEN_PROGRAM_ID};
+use crate::common::types::launchpad_v_7::{Launch, LaunchState};
+use crate::common::types::price_based_performance_package::{
     self, PerformancePackage, PerformancePackageState,
 };
 use crate::FuzzTest;

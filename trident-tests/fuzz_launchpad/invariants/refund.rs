@@ -1,5 +1,5 @@
-use crate::constants::FUNDING_RECORD_SEED_PREFIX;
-use crate::types::launchpad_v_7::{self, FundingRecord, Launch, LaunchState};
+use crate::common::constants::FUNDING_RECORD_SEED_PREFIX;
+use crate::common::types::launchpad_v_7::{self, FundingRecord, Launch, LaunchState};
 use crate::FuzzTest;
 use trident_fuzz::fuzzing::Pubkey;
 

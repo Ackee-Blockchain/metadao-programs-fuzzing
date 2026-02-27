@@ -1,6 +1,6 @@
-use crate::constants::{PERFORMANCE_PACKAGE_SEED_PREFIX, TOKEN_PROGRAM_ID};
-use crate::types::price_based_performance_package;
-use crate::types::price_based_performance_package::{
+use crate::common::constants::{PERFORMANCE_PACKAGE_SEED_PREFIX, TOKEN_PROGRAM_ID};
+use crate::common::types::price_based_performance_package;
+use crate::common::types::price_based_performance_package::{
     InitializePerformancePackageParams, PerformancePackage, PerformancePackageState,
 };
 use crate::FuzzTest;

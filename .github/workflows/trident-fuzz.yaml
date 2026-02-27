@@ -61,10 +61,10 @@ jobs:
             target: "fuzz_2"
           - name: "fuzz_3"
             target: "fuzz_3"
-          # - name: "fuzz_launchpad"
-          #   target: "fuzz_launchpad"
-          # - name: "fuzz_pbpp"
-          #   target: "fuzz_pbpp"
+          - name: "fuzz_launchpad"
+            target: "fuzz_launchpad"
+          - name: "fuzz_pbpp"
+            target: "fuzz_pbpp"
 
     steps:
       - uses: actions/checkout@v4

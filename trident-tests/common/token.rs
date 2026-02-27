@@ -58,3 +58,22 @@ pub fn mint_to(
 
     assert!(res.is_success());
 }
+
+pub fn get_or_initialize_associated_token_account(
+    trident: &mut Trident,
+    payer: Pubkey,
+    mint: Pubkey,
+    owner: Pubkey,
+) -> Pubkey {
+    let ata = trident
+        .get_associated_token_address(&mint, &owner, &TOKEN_PROGRAM_ID);
+
+    if trident.get_token_account(ata).is_err() {
+        let ix = trident
+            .initialize_associated_token_account(&payer, &mint, &owner);
+        let res = trident.process_transaction(&[ix], None);
+        assert!(res.is_success());
+    }
+
+    ata
+}

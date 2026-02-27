@@ -1,5 +1,5 @@
-use crate::types::price_based_performance_package::ChangePerformancePackageAuthorityParams;
-use crate::types::price_based_performance_package::PerformancePackage;
+use crate::common::types::price_based_performance_package::ChangePerformancePackageAuthorityParams;
+use crate::common::types::price_based_performance_package::PerformancePackage;
 use crate::FuzzTest;
 use trident_fuzz::fuzzing::Pubkey;
 

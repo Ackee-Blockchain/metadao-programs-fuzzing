@@ -11,6 +11,14 @@ pub const TOKEN_PROGRAM_ID: Pubkey = pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9S
 pub const _TOKEN_2022_PROGRAM_ID: Pubkey = pubkey!("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
 pub const ASSOCIATED_TOKEN_PROGRAM_ID: Pubkey =
     pubkey!("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
+pub const SOLANA_PROGRAM_ID: Pubkey = pubkey!("11111111111111111111111111111111");
+pub const USDC_MINT: Pubkey = pubkey!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+pub const MPL_TOKEN_METADATA_PROGRAM_ID: Pubkey = pubkey!("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
+pub const RENT_SYSVAR_ID: Pubkey = pubkey!("SysvarRent111111111111111111111111111111111");
+pub const DAMM_V2_PROGRAM_ID: Pubkey = pubkey!("cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG");
+pub const METEORA_CONFIG_ID: Pubkey = pubkey!("FaA6RM9enPh1tU9Y8LiGCq715JubLc49WGcYTdNvDfsc");
+pub const FEE_RECIPIENT_ID: Pubkey = pubkey!("6awyHMshBGVjJ3ozdSJdyyDE1CTAXUwrpNMaRGMsb4sf");
+pub const TOKEN_2022_PROGRAM_ID: Pubkey = pubkey!("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
 // ============================================================================
 
 // ============================================================================
@@ -26,6 +34,21 @@ pub const QUESTION_SEED_PREFIX: &[u8] = b"question";
 pub const CONDITIONAL_TOKEN_SEED_PREFIX: &[u8] = b"conditional_token";
 pub const STAKE_SEED_PREFIX: &[u8] = b"stake";
 pub const AMM_POSITION_SEED_PREFIX: &[u8] = b"amm_position";
+pub const PERFORMANCE_PACKAGE_SEED_PREFIX: &[u8] = b"performance_package";
+pub const CHANGE_REQUEST_SEED_PREFIX: &[u8] = b"change_request";
+pub const SQUADS_SEED_PROGRAM_CONFIG: &[u8] = b"program_config";
+pub const POOL_CREATOR_AUTHORITY_SEED: &[u8] = b"damm_pool_creator_authority";
+pub const POOL_AUTHORITY_SEED: &[u8] = b"pool_authority";
+pub const POOL_PREFIX: &[u8] = b"pool";
+pub const POSITION_NFT_ACCOUNT_PREFIX: &[u8] = b"position_nft_account";
+pub const POSITION_PREFIX: &[u8] = b"position";
+pub const POSITION_NFT_MINT_PREFIX: &[u8] = b"position_nft_mint";
+pub const TOKEN_VAULT_PREFIX: &[u8] = b"token_vault";
+pub const BID_WALL_PREFIX: &[u8] = b"bid_wall";
+pub const LAUNCHPAD_SEED_PREFIX: &[u8] = b"launch";
+pub const TOKEN_METADATA_SEED_PREFIX: &[u8] = b"metadata";
+pub const LAUNCH_SIGNER_SEED_PREFIX: &[u8] = b"launch_signer";
+pub const FUNDING_RECORD_SEED_PREFIX: &[u8] = b"funding_record";
 // ============================================================================
 
 // ============================================================================

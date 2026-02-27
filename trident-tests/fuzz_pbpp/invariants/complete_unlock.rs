@@ -1,4 +1,4 @@
-use crate::types::price_based_performance_package::{PerformancePackage, PerformancePackageState};
+use crate::common::types::price_based_performance_package::{PerformancePackage, PerformancePackageState};
 use crate::FuzzTest;
 use trident_fuzz::fuzzing::*;
 

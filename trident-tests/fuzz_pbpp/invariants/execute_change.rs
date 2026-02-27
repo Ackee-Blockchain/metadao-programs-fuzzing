@@ -1,4 +1,4 @@
-use crate::types::price_based_performance_package::{
+use crate::common::types::price_based_performance_package::{
     ChangeRequest, ChangeType, PerformancePackage, ProposerType,
 };
 use crate::FuzzTest;

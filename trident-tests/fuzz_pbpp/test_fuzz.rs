@@ -1,15 +1,17 @@
 use fuzz_accounts::*;
 use trident_fuzz::fuzzing::*;
-mod constants;
 mod fuzz_accounts;
 mod invariants;
-mod types;
 
 pub mod methods;
 
-use crate::constants::*;
-use crate::types::price_based_performance_package::*;
-
+#[path = "../common/mod.rs"]
+pub mod common;
+use crate::common::constants::*;
+use crate::common::types::price_based_performance_package::*;
+use crate::common::pda::get_performance_package_pda;
+use crate::common::pda::get_change_request_pda;
+use crate::common::token::initialize_associated_token_account;
 #[derive(FuzzTestMethods)]
 struct FuzzTest {
     /// Trident client for interacting with the Solana program
@@ -44,12 +46,12 @@ impl FuzzTest {
         // Core accounts
         let create_key = self.trident.random_keypair();
         let oracle_account = self.trident.random_keypair();
-        let performance_package = self.get_performance_package_pda(create_key.pubkey());
+        let performance_package = get_performance_package_pda(&mut self.trident, create_key.pubkey());
 
         // Token mint + funding
         let token_mint = self.setup_mint();
         let (grantor, grantor_token_account) = self.setup_grantor_accounts(token_mint);
-        let performance_package_token_vault = self.initialize_associated_token_account(
+        let performance_package_token_vault = initialize_associated_token_account(&mut self.trident,
             self.payer.pubkey(),
             token_mint,
             performance_package,
@@ -63,9 +65,9 @@ impl FuzzTest {
 
         // Seed ATAs for both recipients.
         let recipient_a_token_account =
-            self.initialize_associated_token_account(self.payer.pubkey(), token_mint, recipient_a);
+            initialize_associated_token_account(&mut self.trident, self.payer.pubkey(), token_mint, recipient_a);
         let recipient_b_token_account =
-            self.initialize_associated_token_account(self.payer.pubkey(), token_mint, recipient_b);
+            initialize_associated_token_account(&mut self.trident, self.payer.pubkey(), token_mint, recipient_b);
 
         // Persist addresses for flows
         self.fuzz_accounts
@@ -388,7 +390,7 @@ impl FuzzTest {
         };
 
         let pda_nonce = self.trident.random_from_range(0u32..=u32::MAX);
-        let change_request = self.get_change_request_pda(performance_package, proposer, pda_nonce);
+        let change_request = get_change_request_pda(&mut self.trident, performance_package, proposer, pda_nonce);
 
         let change_type = if self.trident.random_from_range(0u8..=1u8) == 0 {
             ChangeType::Recipient {

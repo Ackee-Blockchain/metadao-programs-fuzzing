@@ -1,15 +1,22 @@
 use fuzz_accounts::*;
 use trident_fuzz::fuzzing::*;
-mod constants;
-mod fuzz_accounts;
-mod types;
 
+mod fuzz_accounts;
+#[path = "../common/mod.rs"]
+pub mod common;
 pub mod invariants;
 pub mod methods;
 
-use crate::constants::TOKEN_PROGRAM_ID;
-use crate::constants::{FEE_RECIPIENT_ID, USDC_MINT};
-use crate::types::launchpad_v_7::{FundingRecord, Launch, LaunchState};
+use crate::common::constants::TOKEN_PROGRAM_ID;
+use crate::common::constants::{FEE_RECIPIENT_ID, USDC_MINT};
+use crate::common::types::launchpad_v_7::{FundingRecord, Launch, LaunchState};
+use crate::common::pda::get_launchpad_pda;
+use crate::common::token::initialize_mint;
+use crate::common::token::get_or_initialize_associated_token_account;
+use crate::common::pda::get_funding_record_pda;
+use crate::common::pda::get_performance_package_pda;
+use crate::common::pda::get_squads_multisig_pda;
+use crate::common::pda::get_squads_multisig_vault_pda;
 
 #[derive(FuzzTestMethods)]
 struct FuzzTest {
@@ -46,7 +53,7 @@ impl FuzzTest {
         let quote_mint = USDC_MINT;
         self.fuzz_accounts.quoteMint.insert_with_address(quote_mint);
 
-        let launch = self.get_launchpad_pda(base_mint);
+        let launch = get_launchpad_pda(&mut self.trident, base_mint);
         let launch_signer = self.initialize_launch_signer(launch);
 
         let launch_authority = self.trident.random_keypair();
@@ -57,27 +64,20 @@ impl FuzzTest {
             .airdrop(&wrong_authority.pubkey(), 50 * LAMPORTS_PER_SOL);
 
         // Base mint: authority must be launch_signer PDA.
-        self.initialize_mint(self.payer.pubkey(), base_mint, 6, launch_signer, None, None);
+        initialize_mint(&mut self.trident, self.payer.pubkey(), base_mint, 6, launch_signer, None, None);
 
-        self.initialize_mint(
-            self.payer.pubkey(),
-            quote_mint,
-            6,
-            self.payer.pubkey(),
-            None,
-            None,
-        );
+        initialize_mint(&mut self.trident, self.payer.pubkey(), quote_mint, 6, self.payer.pubkey(), None, None);
 
         // Create metadata PDA account (needed by MPL CPI).
         let token_metadata = self.initialize_token_metadata(base_mint);
 
         // Pre-create vault ATAs to ensure they exist for later instructions (Fund expects them).
-        let quote_vault = self.get_or_initialize_associated_token_account(
+        let quote_vault = get_or_initialize_associated_token_account(&mut self.trident,
             self.payer.pubkey(),
             quote_mint,
             launch_signer,
         );
-        let base_vault = self.get_or_initialize_associated_token_account(
+        let base_vault = get_or_initialize_associated_token_account(&mut self.trident,
             self.payer.pubkey(),
             base_mint,
             launch_signer,
@@ -133,7 +133,7 @@ impl FuzzTest {
             self.trident.airdrop(&funder, 10 * LAMPORTS_PER_SOL);
 
             // Pre-create base ATA for claims (idempotent).
-            self.get_or_initialize_associated_token_account(self.payer.pubkey(), base_mint, funder);
+            get_or_initialize_associated_token_account(&mut self.trident, self.payer.pubkey(), base_mint, funder);
         }
 
         self.fuzz_accounts
@@ -179,10 +179,10 @@ impl FuzzTest {
                     .expect("funder must be set");
 
                 let funding_record = if self.trident.random_from_range(1u8..=100u8) != 1 {
-                    self.get_funding_record_pda(launch, funder)
+                    get_funding_record_pda(&mut self.trident, launch, funder)
                 } else {
                     // Wrong but existing PDA (most of the time)
-                    self.get_funding_record_pda(launch, other_funder)
+                    get_funding_record_pda(&mut self.trident, launch, other_funder)
                 };
 
                 let correct_funder_quote_account = self.trident.get_associated_token_address(
@@ -246,7 +246,7 @@ impl FuzzTest {
                     .map(|acc| acc.account.amount)
                     .unwrap_or(0);
                 let amount = self.random_fund_amount(funder_balance);
-                let funding_record = self.get_funding_record_pda(launch, funder);
+                let funding_record = get_funding_record_pda(&mut self.trident, launch, funder);
                 self.fund(
                     self.payer.pubkey(),
                     launch,
@@ -341,7 +341,7 @@ impl FuzzTest {
         }
 
         let funder = self.fuzz_accounts.funder.get(&mut self.trident).expect("funder must be set");
-        let fr = self.get_funding_record_pda(launch, funder);
+        let fr = get_funding_record_pda(&mut self.trident, launch, funder);
         let fr_acc = self.trident.get_account_with_type::<FundingRecord>(&fr, Some(8)).expect("FundingRecord must exist");
 
         // 99.9% correct authority, 0.1% wrong signer.
@@ -441,7 +441,7 @@ impl FuzzTest {
         }
 
         let funder = self.fuzz_accounts.funder.get(&mut self.trident).expect("funder must be set");
-        let fr = self.get_funding_record_pda(launch, funder);
+        let fr = get_funding_record_pda(&mut self.trident, launch, funder);
 
         let correct_funder_quote_account = self.trident.get_associated_token_address(
             &launch_acc.quoteMint,
@@ -496,9 +496,9 @@ impl FuzzTest {
         }
 
         let funder = self.fuzz_accounts.funder.get(&mut self.trident).expect("funder must be set");
-        let fr = self.get_funding_record_pda(launch, funder);
+        let fr = get_funding_record_pda(&mut self.trident, launch, funder);
 
-        let correct_funder_base_account = self.get_or_initialize_associated_token_account(
+        let correct_funder_base_account = get_or_initialize_associated_token_account(&mut self.trident,
             self.payer.pubkey(),
             launch_acc.baseMint,
             funder,
@@ -559,7 +559,8 @@ impl FuzzTest {
                 && launch_acc.additionalTokensRecipient.is_some()
             {
                 let recipient = launch_acc.additionalTokensRecipient.unwrap();
-                let recipient_token_account = self.get_or_initialize_associated_token_account(
+                let recipient_token_account = get_or_initialize_associated_token_account(
+                    &mut self.trident,
                     self.payer.pubkey(),
                     launch_acc.baseMint,
                     recipient,
@@ -582,11 +583,10 @@ impl FuzzTest {
         // Initialize performance package if possible.
         if !launch_acc.isPerformancePackageInitialized && launch_acc.dao.is_some() {
             let dao = launch_acc.dao.unwrap();
-            let squads_multisig = self.get_squads_multisig_pda(dao);
-            let squads_multisig_vault = self.get_squads_multisig_vault_pda(squads_multisig);
-            let performance_package = self.get_performance_package_pda(launch_acc.launchSigner);
-            let performance_package_token_account = self
-                .get_or_initialize_associated_token_account(
+            let squads_multisig = get_squads_multisig_pda(&mut self.trident, dao);
+            let squads_multisig_vault = get_squads_multisig_vault_pda(&mut self.trident, squads_multisig);
+            let performance_package = get_performance_package_pda(&mut self.trident, launch_acc.launchSigner);
+            let performance_package_token_account = get_or_initialize_associated_token_account(&mut self.trident,
                     self.payer.pubkey(),
                     launch_acc.baseMint,
                     performance_package,

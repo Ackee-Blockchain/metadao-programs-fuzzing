@@ -1,11 +1,28 @@
-use crate::types::launchpad_v_7::MeteoraAccountsInstructionAccounts;
-use crate::types::launchpad_v_7::StaticAccountsInstructionAccounts;
-use crate::types::launchpad_v_7::*;
-use crate::types::*;
+use crate::common::types::launchpad_v_7::MeteoraAccountsInstructionAccounts;
+use crate::common::types::launchpad_v_7::StaticAccountsInstructionAccounts;
+use crate::common::types::launchpad_v_7::*;
+use crate::common::types::*;
 use crate::FuzzTest;
 use trident_fuzz::fuzzing::*;
 
-use crate::constants::*;
+use crate::common::constants::*;
+use crate::common::pda::get_event_authority_pda;
+use crate::common::pda::get_dao_pda;
+use crate::common::pda::get_squads_multisig_pda;
+use crate::common::pda::get_squads_multisig_vault_pda;
+use crate::common::pda::get_squads_multisig_spending_limit_pda;
+use crate::common::pda::get_token_a_vault_pda;
+use crate::common::pda::get_token_b_vault_pda;
+use crate::common::pda::get_position_nft_mint_pda;
+use crate::common::pda::get_position_nft_account_pda;
+use crate::common::pda::get_position_pda;
+use crate::common::pda::get_pool_creator_authority_pda;
+use crate::common::pda::get_pool_authority_pda;
+use crate::common::pda::get_pool_pda;
+use crate::common::pda::get_bid_wall_pda;
+use crate::common::token::get_or_initialize_associated_token_account;
+use crate::common::pda::get_amm_position_pda;
+
 
 impl FuzzTest {
     pub fn initialize_launch(
@@ -23,7 +40,7 @@ impl FuzzTest {
         args: InitializeLaunchArgs,
         message: Option<&str>,
     ) {
-        let event_authority = self.get_event_authority_pda(launchpad_v_7::program_id());
+        let event_authority = get_event_authority_pda(&mut self.trident, launchpad_v_7::program_id());
 
         // Capture pre-state for invariants
         let args_for_invariants = args.clone();
@@ -73,7 +90,6 @@ impl FuzzTest {
             launch,
             base_mint,
                     quote_mint,
-                    token_metadata,
                     launch_signer,
                     quote_vault,
                     base_vault,
@@ -97,7 +113,7 @@ impl FuzzTest {
         amount: u64,
         message: Option<&str>,
     ) {
-        let event_authority = self.get_event_authority_pda(launchpad_v_7::program_id());
+        let event_authority = get_event_authority_pda(&mut self.trident, launchpad_v_7::program_id());
 
         // Capture pre-state for invariants
         let timestamp_before_tx = self.trident.get_current_timestamp();
@@ -165,7 +181,7 @@ impl FuzzTest {
         launch_authority: Pubkey,
         message: Option<&str>,
     ) {
-        let event_authority = self.get_event_authority_pda(launchpad_v_7::program_id());
+        let event_authority = get_event_authority_pda(&mut self.trident, launchpad_v_7::program_id());
 
         // Capture pre-state for invariants
         let timestamp_before_tx = self.trident.get_current_timestamp();
@@ -207,7 +223,7 @@ impl FuzzTest {
         approved_amount: u64,
         message: Option<&str>,
     ) {
-        let event_authority = self.get_event_authority_pda(launchpad_v_7::program_id());
+        let event_authority = get_event_authority_pda(&mut self.trident, launchpad_v_7::program_id());
 
         // Capture pre-state for invariants
         let pre_launch = self
@@ -252,7 +268,7 @@ impl FuzzTest {
     }
 
     pub fn close_launch(&mut self, launch: Pubkey, message: Option<&str>) {
-        let event_authority = self.get_event_authority_pda(launchpad_v_7::program_id());
+        let event_authority = get_event_authority_pda(&mut self.trident, launchpad_v_7::program_id());
 
         // Capture pre-state for invariants
         let timestamp_before_tx = self.trident.get_current_timestamp();
@@ -290,7 +306,7 @@ impl FuzzTest {
         funder_quote_account: Pubkey,
         message: Option<&str>,
     ) {
-        let event_authority = self.get_event_authority_pda(launchpad_v_7::program_id());
+        let event_authority = get_event_authority_pda(&mut self.trident, launchpad_v_7::program_id());
 
         // Capture pre-state for invariants
         let pre_launch = self
@@ -361,7 +377,7 @@ impl FuzzTest {
         funder_quote_account: Pubkey,
         message: Option<&str>,
     ) {
-        let event_authority = self.get_event_authority_pda(launchpad_v_7::program_id());
+        let event_authority = get_event_authority_pda(&mut self.trident, launchpad_v_7::program_id());
 
         // Capture pre-state for invariants
         let pre_launch = self
@@ -433,7 +449,7 @@ impl FuzzTest {
         additional_tokens_recipient_token_account: Pubkey,
         message: Option<&str>,
     ) {
-        let event_authority = self.get_event_authority_pda(launchpad_v_7::program_id());
+        let event_authority = get_event_authority_pda(&mut self.trident, launchpad_v_7::program_id());
 
         // Capture pre-state for invariants
         let pre_launch = self
@@ -509,9 +525,9 @@ impl FuzzTest {
         performance_package_token_account: Pubkey,
         message: Option<&str>,
     ) {
-        let event_authority = self.get_event_authority_pda(launchpad_v_7::program_id());
+        let event_authority = get_event_authority_pda(&mut self.trident, launchpad_v_7::program_id());
         let price_based_performance_package_event_authority =
-            self.get_event_authority_pda(price_based_performance_package::program_id());
+            get_event_authority_pda(&mut self.trident, price_based_performance_package::program_id());
 
         // Capture pre-state for invariants
         let pre_launch = self
@@ -597,26 +613,26 @@ impl FuzzTest {
         fee_recipient: Pubkey,
         message: Option<&str>,
     ) {
-        let event_authority = self.get_event_authority_pda(launchpad_v_7::program_id());
-        let autocrat_event_authority = self.get_event_authority_pda(futarchy::program_id());
-        let bid_wall_event_authority = self.get_event_authority_pda(bid_wall::program_id());
-        let damm_v2_event_authority = self.get_event_authority_pda(damm_v_2_cpi::program_id());
+        let event_authority = get_event_authority_pda(&mut self.trident, launchpad_v_7::program_id());
+        let autocrat_event_authority = get_event_authority_pda(&mut self.trident, futarchy::program_id());
+        let bid_wall_event_authority = get_event_authority_pda(&mut self.trident, bid_wall::program_id());
+        let damm_v2_event_authority = get_event_authority_pda(&mut self.trident, DAMM_V2_PROGRAM_ID);
         let squads_program_config = SQUADS_PROGRAM_CONFIG_ID;
         let squads_program_config_treasury = SQUADS_PROGRAM_CONFIG_TREASURY_ID;
-        let pool_creator_authority = self.get_pool_creator_authority_pda();
-        let pool_authority = self.get_pool_authority_pda();
+        let pool_creator_authority = get_pool_creator_authority_pda(&mut self.trident);
+        let pool_authority = get_pool_authority_pda(&mut self.trident);
         let config = METEORA_CONFIG_ID;
-        let position_nft_mint = self.get_position_nft_mint_pda(base_mint);
-        let pool = self.get_pool_pda(config, base_mint, quote_mint);
-        let position_nft_account = self.get_position_nft_account_pda(position_nft_mint);
-        let position = self.get_position_pda(position_nft_mint);
-        let token_a_vault = self.get_token_a_vault_pda(base_mint, pool);
-        let token_b_vault = self.get_token_b_vault_pda(quote_mint, pool);
-        let dao = self.get_dao_pda(launch_signer, 0);
-        let squads_multisig = self.get_squads_multisig_pda(dao);
-        let squads_multisig_vault = self.get_squads_multisig_vault_pda(squads_multisig);
-        let spending_limit = self.get_squads_multisig_spending_limit_pda(squads_multisig, dao);
-        let treasury_quote_account = self.get_or_initialize_associated_token_account(
+        let position_nft_mint = get_position_nft_mint_pda(&mut self.trident, base_mint);
+        let pool = get_pool_pda(&mut self.trident, config, base_mint, quote_mint);
+        let position_nft_account = get_position_nft_account_pda(&mut self.trident, position_nft_mint);
+        let position = get_position_pda(&mut self.trident, position_nft_mint);
+        let token_a_vault = get_token_a_vault_pda(&mut self.trident, base_mint, pool);
+        let token_b_vault = get_token_b_vault_pda(&mut self.trident, quote_mint, pool);
+        let dao = get_dao_pda(&mut self.trident, launch_signer, 0);
+        let squads_multisig = get_squads_multisig_pda(&mut self.trident, dao);
+        let squads_multisig_vault = get_squads_multisig_vault_pda(&mut self.trident, squads_multisig);
+        let spending_limit = get_squads_multisig_spending_limit_pda(&mut self.trident, squads_multisig, dao);
+        let treasury_quote_account = get_or_initialize_associated_token_account(&mut self.trident,
             self.payer.pubkey(),
             quote_mint,
             squads_multisig_vault,
@@ -627,13 +643,13 @@ impl FuzzTest {
         let futarchy_amm_quote_vault =
             self.trident
                 .get_associated_token_address(&quote_mint, &dao, &TOKEN_PROGRAM_ID);
-        let bid_wall = self.get_bid_wall_pda(base_mint, launch_signer);
-        let bid_wall_quote_token_account = self.get_or_initialize_associated_token_account(
+        let bid_wall = get_bid_wall_pda(&mut self.trident, base_mint, launch_signer);
+        let bid_wall_quote_token_account = get_or_initialize_associated_token_account(&mut self.trident,
             self.payer.pubkey(),
             quote_mint,
             bid_wall,
         );
-        let dao_owned_lp_position = self.get_amm_position_pda(dao, squads_multisig_vault);
+        let dao_owned_lp_position = get_amm_position_pda(&mut self.trident, dao, squads_multisig_vault);
 
         // Capture pre-state for invariants
         let pre_launch = self
@@ -677,7 +693,7 @@ impl FuzzTest {
             bid_wall_event_authority,
         );
         let meteora_accounts = MeteoraAccountsInstructionAccounts::new(
-            damm_v_2_cpi::program_id(),
+            DAMM_V2_PROGRAM_ID,
             config,
             TOKEN_2022_PROGRAM_ID,
             position_nft_account,

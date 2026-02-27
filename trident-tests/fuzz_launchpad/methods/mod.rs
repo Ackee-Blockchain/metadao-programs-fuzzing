@@ -1,13 +1,14 @@
-use crate::constants::MPL_TOKEN_METADATA_PROGRAM_ID;
-use crate::types::launchpad_v_7;
-use crate::types::launchpad_v_7::InitializeLaunchArgs;
+use crate::common::constants::MPL_TOKEN_METADATA_PROGRAM_ID;
+use crate::common::types::launchpad_v_7;
+use crate::common::types::launchpad_v_7::InitializeLaunchArgs;
 use crate::FuzzTest;
 use trident_fuzz::fuzzing::*;
 
+use crate::common::pda::get_token_metadata_pda;
+use crate::common::pda::get_launch_signer_pda;
+use crate::common::token::initialize_associated_token_account;
+
 pub mod launchpad;
-pub mod pda;
-pub mod squads;
-pub mod token;
 
 impl FuzzTest {
     fn mostly_valid_99(&mut self) -> bool {
@@ -187,6 +188,18 @@ impl FuzzTest {
             }
         };
 
+
+        let accumulator_activation_delay_seconds: u32 = if mostly_valid {
+            self.trident.random_from_range(0u32..=seconds_for_launch)
+        } else {
+            match self.trident.random_from_range(0u8..=3u8) {
+                0 => 0,
+                1 => MAX_SECONDS_FOR_LAUNCH.saturating_add(1),
+                2 => u32::MAX,
+                _ => self.trident.random_from_range(0u32..=MAX_SECONDS_FOR_LAUNCH),
+            }
+        };
+
         InitializeLaunchArgs::new(
             minimum_raise_amount,
             monthly_spending_limit_amount,
@@ -200,6 +213,7 @@ impl FuzzTest {
             months_until_insiders_can_unlock,
             team_address,
             additional_tokens_amount,
+            accumulator_activation_delay_seconds,
         )
     }
 
@@ -250,7 +264,7 @@ impl FuzzTest {
     }
 
     pub fn initialize_token_metadata(&mut self, base_mint: Pubkey) -> Pubkey {
-        let token_metadata = self.get_token_metadata_pda(base_mint);
+        let token_metadata = get_token_metadata_pda(&mut self.trident, base_mint);
         self.trident.create_account(
             &self.payer.pubkey(),
             &token_metadata,
@@ -262,7 +276,7 @@ impl FuzzTest {
     }
 
     pub fn initialize_launch_signer(&mut self, launch: Pubkey) -> Pubkey {
-        let launch_signer = self.get_launch_signer_pda(launch);
+        let launch_signer = get_launch_signer_pda(&mut self.trident, launch);
         self.trident.create_account(
             &self.payer.pubkey(),
             &launch_signer,
@@ -280,7 +294,7 @@ impl FuzzTest {
         mint_authority: Pubkey,
     ) -> (Pubkey, Pubkey) {
         let funder = self.trident.random_keypair();
-        let funder_quote_account = self.initialize_associated_token_account(
+        let funder_quote_account = initialize_associated_token_account(&mut self.trident,
             self.payer.pubkey(),
             quote_mint,
             funder.pubkey(),

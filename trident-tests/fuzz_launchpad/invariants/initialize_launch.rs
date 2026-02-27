@@ -1,9 +1,7 @@
-use crate::constants::{
-    ASSOCIATED_TOKEN_PROGRAM_ID, LAUNCHPAD_SEED_PREFIX, LAUNCH_SIGNER_SEED_PREFIX,
-    MPL_TOKEN_METADATA_PROGRAM_ID, SOLANA_PROGRAM_ID, TOKEN_METADATA_SEED_PREFIX, TOKEN_PROGRAM_ID,
-    USDC_MINT,
+use crate::common::constants::{
+    LAUNCHPAD_SEED_PREFIX, LAUNCH_SIGNER_SEED_PREFIX, TOKEN_PROGRAM_ID,
 };
-use crate::types::launchpad_v_7::{self, InitializeLaunchArgs, Launch, LaunchState};
+use crate::common::types::launchpad_v_7::{self, InitializeLaunchArgs, Launch, LaunchState};
 use crate::FuzzTest;
 use trident_fuzz::fuzzing::Pubkey;
 
@@ -18,7 +16,6 @@ impl FuzzTest {
         launch: Pubkey,
         base_mint: Pubkey,
         quote_mint: Pubkey,
-        token_metadata: Pubkey,
         launch_signer: Pubkey,
         quote_vault: Pubkey,
         base_vault: Pubkey,

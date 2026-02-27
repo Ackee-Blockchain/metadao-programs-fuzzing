@@ -1,9 +1,11 @@
 use crate::FuzzTest;
 use trident_fuzz::fuzzing::*;
 
+use crate::common::token::initialize_mint;
+use crate::common::token::initialize_associated_token_account;
+use crate::common::token::mint_to;
+use crate::common::types::price_based_performance_package::InitializePerformancePackageParams;
 pub mod pbpp;
-pub mod pda;
-pub mod token;
 
 impl FuzzTest {
     pub fn initial_setup(&mut self) {
@@ -38,21 +40,10 @@ impl FuzzTest {
             .set_account_custom(&oracle, &oracle_account_state);
     }
 
-    /// Convenience wrapper for `upsert_mock_oracle_u128_i64` using the current Trident timestamp.
-    pub fn upsert_mock_oracle_u128_i64_now(
-        &mut self,
-        oracle: Pubkey,
-        owner: Pubkey,
-        byte_offset: usize,
-        aggregator: u128,
-    ) {
-        let ts = self.trident.get_current_timestamp();
-        self.upsert_mock_oracle_u128_i64(oracle, owner, byte_offset, aggregator, ts);
-    }
-
     pub fn setup_mint(&mut self) -> Pubkey {
         let mint = self.trident.random_keypair();
-        self.initialize_mint(
+        initialize_mint(
+            &mut self.trident,
             self.payer.pubkey(),
             mint.pubkey(),
             6,
@@ -65,19 +56,19 @@ impl FuzzTest {
 
     pub fn setup_grantor_accounts(&mut self, token_mint: Pubkey) -> (Pubkey, Pubkey) {
         let grantor = self.trident.random_keypair();
-        let grantor_ata = self.initialize_associated_token_account(
+        let grantor_ata = initialize_associated_token_account(
+            &mut self.trident,
             self.payer.pubkey(),
             token_mint,
             grantor.pubkey(),
         );
-        let mint_to_grantor_ata_ix = self.trident.mint_to(
-            &grantor_ata,
-            &token_mint,
-            &self.payer.pubkey(),
+        mint_to(
+            &mut self.trident,
+            grantor_ata,
+            token_mint,
+            self.payer.pubkey(),
             1_000_000_000_000,
         );
-        self.trident
-            .process_transaction(&[mint_to_grantor_ata_ix], None);
         (grantor.pubkey(), grantor_ata)
     }
 
@@ -88,8 +79,8 @@ impl FuzzTest {
         oracle_byte_offset: u32,
         grantee: Pubkey,
         performance_package_authority: Pubkey,
-    ) -> crate::types::price_based_performance_package::InitializePerformancePackageParams {
-        use crate::types::price_based_performance_package::{
+    ) -> InitializePerformancePackageParams {
+        use crate::common::types::price_based_performance_package::{
             InitializePerformancePackageParams, OracleConfig, Tranche,
         };
 

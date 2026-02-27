@@ -1,4 +1,4 @@
-use crate::types::price_based_performance_package::{PerformancePackage, PerformancePackageState};
+use crate::common::types::price_based_performance_package::{PerformancePackage, PerformancePackageState};
 use crate::FuzzTest;
 use trident_fuzz::fuzzing::*;
 
@@ -10,7 +10,6 @@ impl FuzzTest {
         recipient: Pubkey,
         pre_pp: &PerformancePackage,
         pre_vault_amount: u64,
-        timestamp_before_tx: i64,
     ) {
         let post_pp = self
             .trident
