@@ -103,7 +103,7 @@ impl FuzzTest {
 
         let init_dao_params = InitializeDaoParams::new(
             0,
-            0,
+            1,
             0,
             1,
             1,
@@ -185,6 +185,7 @@ impl FuzzTest {
             &mut self.trident,
             self.dao,
             squads_proposal,
+            multisig,
             self.proposer.pubkey(),
             self.payer.pubkey(),
             self.question,
@@ -227,6 +228,8 @@ impl FuzzTest {
 
         methods::futarchy::launch_proposal(
             &mut self.trident,
+            multisig,
+            squads_proposal,
             self.dao,
             self.payer.pubkey(),
             self.proposal,

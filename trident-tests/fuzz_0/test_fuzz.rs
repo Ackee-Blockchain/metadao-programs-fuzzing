@@ -88,7 +88,7 @@ impl FuzzTest {
         // Initialize DAO with minimal parameters for liquidity testing
         let init_dao_params = InitializeDaoParams::new(
             0,
-            0,
+            1,
             0,
             1,
             1,

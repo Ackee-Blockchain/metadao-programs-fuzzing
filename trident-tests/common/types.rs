@@ -117,7 +117,7 @@ pub mod conditional_vault {
     /// Implementation for InitializeQuestionInstruction
     impl InitializeQuestionInstruction {
         fn discriminator() -> [u8; 8] {
-            [245, 151, 106, 188, 88, 44, 65, 212]
+            [245u8, 151u8, 106u8, 188u8, 88u8, 44u8, 65u8, 212u8]
         }
 
         pub fn data(data: InitializeQuestionInstructionData) -> Self {
@@ -441,7 +441,7 @@ pub mod conditional_vault {
                 AccountMeta::new_readonly(accounts.underlyingTokenMint, false);
 
             self.accounts.vaultUnderlyingTokenAccount =
-                AccountMeta::new_readonly(accounts.vaultUnderlyingTokenAccount, false);
+                AccountMeta::new(accounts.vaultUnderlyingTokenAccount, false);
 
             self.accounts.payer = AccountMeta::new(accounts.payer, true);
 
@@ -1164,7 +1164,7 @@ pub mod conditional_vault {
             self.accounts.vault = AccountMeta::new(accounts.vault, false);
 
             self.accounts.conditionalTokenMint =
-                AccountMeta::new(accounts.conditionalTokenMint, false);
+                AccountMeta::new_readonly(accounts.conditionalTokenMint, false);
 
             self.accounts.conditionalTokenMetadata =
                 AccountMeta::new(accounts.conditionalTokenMetadata, false);
@@ -1306,6 +1306,12 @@ pub mod conditional_vault {
 
         /// Conditional token account is not owned by the authority
         UnauthorizedConditionalTokenAccount = 6016,
+
+        /// Payout numerators are too large, causing an overflow
+        InvalidPayoutNumerators = 6017,
+
+        /// Questions can only have up to 10 outcomes
+        TooManyOutcomes = 6018,
     }
 
     impl ConditionalvaultError {
@@ -1352,6 +1358,10 @@ pub mod conditional_vault {
 
                 Self::UnauthorizedConditionalTokenAccount => "Conditional token account is not owned by the authority",
 
+                Self::InvalidPayoutNumerators => "Payout numerators are too large, causing an overflow",
+
+                Self::TooManyOutcomes => "Questions can only have up to 10 outcomes",
+
             }
         }
 
@@ -1392,6 +1402,10 @@ pub mod conditional_vault {
 
                 6016 => Some(Self::UnauthorizedConditionalTokenAccount),
 
+                6017 => Some(Self::InvalidPayoutNumerators),
+
+                6018 => Some(Self::TooManyOutcomes),
+
                 _ => None,
             }
         }
@@ -1414,7 +1428,7 @@ pub mod conditional_vault {
     // ------------------------------------------------------------------------
 
     /// Custom struct: CommonFields
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct CommonFields {
         pub slot: u64,
 
@@ -1432,7 +1446,7 @@ pub mod conditional_vault {
     }
 
     /// Custom struct: AddMetadataToConditionalTokensArgs
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct AddMetadataToConditionalTokensArgs {
         pub name: String,
 
@@ -1448,7 +1462,7 @@ pub mod conditional_vault {
     }
 
     /// Custom struct: InitializeQuestionArgs
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct InitializeQuestionArgs {
         pub questionId: [u8; 32],
 
@@ -1470,7 +1484,7 @@ pub mod conditional_vault {
     }
 
     /// Custom struct: ResolveQuestionArgs
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct ResolveQuestionArgs {
         pub payoutNumerators: Vec<u32>,
     }
@@ -1481,18 +1495,8 @@ pub mod conditional_vault {
         }
     }
 
-    /// Custom enum: VaultStatus
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
-    pub enum VaultStatus {
-        Active,
-
-        Finalized,
-
-        Reverted,
-    }
-
     /// Custom struct: ConditionalVault
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct ConditionalVault {
         pub question: Pubkey,
 
@@ -1544,7 +1548,7 @@ pub mod conditional_vault {
     }
 
     /// Custom struct: Question
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct Question {
         pub questionId: [u8; 32],
 
@@ -1579,16 +1583,16 @@ pub mod conditional_vault {
 }
 
 // ----------------------------------------------------------------------------
-// Program: launchpad
+// Program: launchpad_v_7
 // ----------------------------------------------------------------------------
-pub mod launchpad {
+pub mod launchpad_v_7 {
     use super::*;
 
     // ------------------------------------------------------------------------
     // Program ID
     // ------------------------------------------------------------------------
 
-    /// Returns the program ID for launchpad
+    /// Returns the program ID for launchpad_v7
     pub fn program_id() -> Pubkey {
         pubkey!("moontUzsdepotRGe5xsfip7vLPTJnVuafqdUWexVnPM")
     }
@@ -1629,6 +1633,8 @@ pub mod launchpad {
 
         pub quoteMint: AccountMeta,
 
+        pub additionalTokensRecipient: AccountMeta,
+
         pub rent: AccountMeta,
 
         pub tokenProgram: AccountMeta,
@@ -1665,6 +1671,8 @@ pub mod launchpad {
 
         pub quoteMint: Pubkey,
 
+        pub additionalTokensRecipient: Pubkey,
+
         pub rent: Pubkey,
 
         pub tokenProgram: Pubkey,
@@ -1700,6 +1708,8 @@ pub mod launchpad {
 
             quoteMint: Pubkey,
 
+            additionalTokensRecipient: Pubkey,
+
             rent: Pubkey,
 
             tokenProgram: Pubkey,
@@ -1732,6 +1742,8 @@ pub mod launchpad {
                 launchAuthority,
 
                 quoteMint,
+
+                additionalTokensRecipient,
 
                 rent,
 
@@ -1796,6 +1808,9 @@ pub mod launchpad {
 
             self.accounts.quoteMint = AccountMeta::new_readonly(accounts.quoteMint, false);
 
+            self.accounts.additionalTokensRecipient =
+                AccountMeta::new_readonly(accounts.additionalTokensRecipient, false);
+
             self.accounts.rent = AccountMeta::new_readonly(accounts.rent, false);
 
             self.accounts.tokenProgram = AccountMeta::new_readonly(accounts.tokenProgram, false);
@@ -1841,6 +1856,8 @@ pub mod launchpad {
             metas.push(self.accounts.launchAuthority.clone());
 
             metas.push(self.accounts.quoteMint.clone());
+
+            metas.push(self.accounts.additionalTokensRecipient.clone());
 
             metas.push(self.accounts.rent.clone());
 
@@ -2209,6 +2226,146 @@ pub mod launchpad {
     }
 
     // ....................................................................
+    // Instruction: SetFundingRecordApproval
+    // ....................................................................
+
+    /// Main instruction struct for SetFundingRecordApproval
+    pub struct SetFundingRecordApprovalInstruction {
+        pub accounts: SetFundingRecordApprovalInstructionAccountMetas,
+        pub data: SetFundingRecordApprovalInstructionData,
+        pub remaining_accounts: Vec<AccountMeta>,
+    }
+
+    /// Account metadata for SetFundingRecordApproval instruction
+    #[derive(Debug, Clone, Default)]
+    pub struct SetFundingRecordApprovalInstructionAccountMetas {
+        pub launch: AccountMeta,
+
+        pub fundingRecord: AccountMeta,
+
+        pub launchAuthority: AccountMeta,
+
+        pub eventAuthority: AccountMeta,
+
+        pub program: AccountMeta,
+    }
+
+    /// Account pubkeys for SetFundingRecordApproval instruction
+    #[derive(Debug, Clone)]
+    pub struct SetFundingRecordApprovalInstructionAccounts {
+        pub launch: Pubkey,
+
+        pub fundingRecord: Pubkey,
+
+        pub launchAuthority: Pubkey,
+
+        pub eventAuthority: Pubkey,
+
+        pub program: Pubkey,
+    }
+
+    impl SetFundingRecordApprovalInstructionAccounts {
+        pub fn new(
+            launch: Pubkey,
+
+            fundingRecord: Pubkey,
+
+            launchAuthority: Pubkey,
+
+            eventAuthority: Pubkey,
+
+            program: Pubkey,
+        ) -> Self {
+            Self {
+                launch,
+
+                fundingRecord,
+
+                launchAuthority,
+
+                eventAuthority,
+
+                program,
+            }
+        }
+    }
+
+    /// Instruction data for SetFundingRecordApproval
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    pub struct SetFundingRecordApprovalInstructionData {
+        pub approvedAmount: u64,
+    }
+
+    impl SetFundingRecordApprovalInstructionData {
+        pub fn new(approvedAmount: u64) -> Self {
+            Self { approvedAmount }
+        }
+    }
+
+    /// Implementation for SetFundingRecordApprovalInstruction
+    impl SetFundingRecordApprovalInstruction {
+        fn discriminator() -> [u8; 8] {
+            [18u8, 197u8, 233u8, 219u8, 37u8, 33u8, 186u8, 25u8]
+        }
+
+        pub fn data(data: SetFundingRecordApprovalInstructionData) -> Self {
+            Self {
+                accounts: SetFundingRecordApprovalInstructionAccountMetas::default(),
+                data,
+                remaining_accounts: Vec::new(),
+            }
+        }
+
+        pub fn accounts(mut self, accounts: SetFundingRecordApprovalInstructionAccounts) -> Self {
+            self.accounts.launch = AccountMeta::new(accounts.launch, false);
+
+            self.accounts.fundingRecord = AccountMeta::new(accounts.fundingRecord, false);
+
+            self.accounts.launchAuthority =
+                AccountMeta::new_readonly(accounts.launchAuthority, true);
+
+            self.accounts.eventAuthority =
+                AccountMeta::new_readonly(accounts.eventAuthority, false);
+
+            self.accounts.program = AccountMeta::new_readonly(accounts.program, false);
+
+            self
+        }
+
+        pub fn remaining_accounts(mut self, accounts: Vec<AccountMeta>) -> Self {
+            self.remaining_accounts = accounts;
+            self
+        }
+
+        fn to_account_metas(&self) -> Vec<AccountMeta> {
+            let mut metas = Vec::new();
+
+            metas.push(self.accounts.launch.clone());
+
+            metas.push(self.accounts.fundingRecord.clone());
+
+            metas.push(self.accounts.launchAuthority.clone());
+
+            metas.push(self.accounts.eventAuthority.clone());
+
+            metas.push(self.accounts.program.clone());
+
+            metas.extend(self.remaining_accounts.clone());
+            metas
+        }
+
+        pub fn instruction(&self) -> Instruction {
+            let mut buffer: Vec<u8> = Vec::new();
+
+            buffer.extend_from_slice(&Self::discriminator());
+
+            self.data.serialize(&mut buffer).unwrap();
+
+            Instruction::new_with_bytes(program_id(), &buffer, self.to_account_metas())
+        }
+    }
+
+    // ....................................................................
     // Instruction: CompleteLaunch
     // ....................................................................
 
@@ -2256,9 +2413,11 @@ pub mod launchpad {
 
         pub spendingLimit: AccountMeta,
 
-        pub performancePackage: AccountMeta,
+        pub bidWall: AccountMeta,
 
-        pub performancePackageTokenAccount: AccountMeta,
+        pub bidWallQuoteTokenAccount: AccountMeta,
+
+        pub feeRecipient: AccountMeta,
 
         pub systemProgram: AccountMeta,
 
@@ -2312,9 +2471,11 @@ pub mod launchpad {
 
         pub spendingLimit: Pubkey,
 
-        pub performancePackage: Pubkey,
+        pub bidWall: Pubkey,
 
-        pub performancePackageTokenAccount: Pubkey,
+        pub bidWallQuoteTokenAccount: Pubkey,
+
+        pub feeRecipient: Pubkey,
 
         pub systemProgram: Pubkey,
 
@@ -2367,9 +2528,11 @@ pub mod launchpad {
 
             spendingLimit: Pubkey,
 
-            performancePackage: Pubkey,
+            bidWall: Pubkey,
 
-            performancePackageTokenAccount: Pubkey,
+            bidWallQuoteTokenAccount: Pubkey,
+
+            feeRecipient: Pubkey,
 
             systemProgram: Pubkey,
 
@@ -2420,9 +2583,11 @@ pub mod launchpad {
 
                 spendingLimit,
 
-                performancePackage,
+                bidWall,
 
-                performancePackageTokenAccount,
+                bidWallQuoteTokenAccount,
+
+                feeRecipient,
 
                 systemProgram,
 
@@ -2443,13 +2608,11 @@ pub mod launchpad {
 
     /// Instruction data for CompleteLaunch
     #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
-    pub struct CompleteLaunchInstructionData {
-        pub args: CompleteLaunchArgs,
-    }
+    pub struct CompleteLaunchInstructionData {}
 
     impl CompleteLaunchInstructionData {
-        pub fn new(args: CompleteLaunchArgs) -> Self {
-            Self { args }
+        pub fn new() -> Self {
+            Self {}
         }
     }
 
@@ -2507,10 +2670,12 @@ pub mod launchpad {
 
             self.accounts.spendingLimit = AccountMeta::new(accounts.spendingLimit, false);
 
-            self.accounts.performancePackage = AccountMeta::new(accounts.performancePackage, false);
+            self.accounts.bidWall = AccountMeta::new(accounts.bidWall, false);
 
-            self.accounts.performancePackageTokenAccount =
-                AccountMeta::new(accounts.performancePackageTokenAccount, false);
+            self.accounts.bidWallQuoteTokenAccount =
+                AccountMeta::new(accounts.bidWallQuoteTokenAccount, false);
+
+            self.accounts.feeRecipient = AccountMeta::new_readonly(accounts.feeRecipient, false);
 
             self.accounts.systemProgram = AccountMeta::new_readonly(accounts.systemProgram, false);
 
@@ -2577,9 +2742,11 @@ pub mod launchpad {
 
             metas.push(self.accounts.spendingLimit.clone());
 
-            metas.push(self.accounts.performancePackage.clone());
+            metas.push(self.accounts.bidWall.clone());
 
-            metas.push(self.accounts.performancePackageTokenAccount.clone());
+            metas.push(self.accounts.bidWallQuoteTokenAccount.clone());
+
+            metas.push(self.accounts.feeRecipient.clone());
 
             metas.push(self.accounts.systemProgram.clone());
 
@@ -3123,12 +3290,766 @@ pub mod launchpad {
         }
     }
 
+    // ....................................................................
+    // Instruction: ClaimAdditionalTokenAllocation
+    // ....................................................................
+
+    /// Main instruction struct for ClaimAdditionalTokenAllocation
+    pub struct ClaimAdditionalTokenAllocationInstruction {
+        pub accounts: ClaimAdditionalTokenAllocationInstructionAccountMetas,
+        pub data: ClaimAdditionalTokenAllocationInstructionData,
+        pub remaining_accounts: Vec<AccountMeta>,
+    }
+
+    /// Account metadata for ClaimAdditionalTokenAllocation instruction
+    #[derive(Debug, Clone, Default)]
+    pub struct ClaimAdditionalTokenAllocationInstructionAccountMetas {
+        pub launch: AccountMeta,
+
+        pub payer: AccountMeta,
+
+        pub launchSigner: AccountMeta,
+
+        pub launchBaseVault: AccountMeta,
+
+        pub baseMint: AccountMeta,
+
+        pub additionalTokensRecipient: AccountMeta,
+
+        pub additionalTokensRecipientTokenAccount: AccountMeta,
+
+        pub systemProgram: AccountMeta,
+
+        pub tokenProgram: AccountMeta,
+
+        pub associatedTokenProgram: AccountMeta,
+
+        pub eventAuthority: AccountMeta,
+
+        pub program: AccountMeta,
+    }
+
+    /// Account pubkeys for ClaimAdditionalTokenAllocation instruction
+    #[derive(Debug, Clone)]
+    pub struct ClaimAdditionalTokenAllocationInstructionAccounts {
+        pub launch: Pubkey,
+
+        pub payer: Pubkey,
+
+        pub launchSigner: Pubkey,
+
+        pub launchBaseVault: Pubkey,
+
+        pub baseMint: Pubkey,
+
+        pub additionalTokensRecipient: Pubkey,
+
+        pub additionalTokensRecipientTokenAccount: Pubkey,
+
+        pub systemProgram: Pubkey,
+
+        pub tokenProgram: Pubkey,
+
+        pub associatedTokenProgram: Pubkey,
+
+        pub eventAuthority: Pubkey,
+
+        pub program: Pubkey,
+    }
+
+    impl ClaimAdditionalTokenAllocationInstructionAccounts {
+        pub fn new(
+            launch: Pubkey,
+
+            payer: Pubkey,
+
+            launchSigner: Pubkey,
+
+            launchBaseVault: Pubkey,
+
+            baseMint: Pubkey,
+
+            additionalTokensRecipient: Pubkey,
+
+            additionalTokensRecipientTokenAccount: Pubkey,
+
+            systemProgram: Pubkey,
+
+            tokenProgram: Pubkey,
+
+            associatedTokenProgram: Pubkey,
+
+            eventAuthority: Pubkey,
+
+            program: Pubkey,
+        ) -> Self {
+            Self {
+                launch,
+
+                payer,
+
+                launchSigner,
+
+                launchBaseVault,
+
+                baseMint,
+
+                additionalTokensRecipient,
+
+                additionalTokensRecipientTokenAccount,
+
+                systemProgram,
+
+                tokenProgram,
+
+                associatedTokenProgram,
+
+                eventAuthority,
+
+                program,
+            }
+        }
+    }
+
+    /// Instruction data for ClaimAdditionalTokenAllocation
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    pub struct ClaimAdditionalTokenAllocationInstructionData {}
+
+    impl ClaimAdditionalTokenAllocationInstructionData {
+        pub fn new() -> Self {
+            Self {}
+        }
+    }
+
+    /// Implementation for ClaimAdditionalTokenAllocationInstruction
+    impl ClaimAdditionalTokenAllocationInstruction {
+        fn discriminator() -> [u8; 8] {
+            [245u8, 214u8, 225u8, 140u8, 237u8, 135u8, 163u8, 244u8]
+        }
+
+        pub fn data(data: ClaimAdditionalTokenAllocationInstructionData) -> Self {
+            Self {
+                accounts: ClaimAdditionalTokenAllocationInstructionAccountMetas::default(),
+                data,
+                remaining_accounts: Vec::new(),
+            }
+        }
+
+        pub fn accounts(
+            mut self,
+            accounts: ClaimAdditionalTokenAllocationInstructionAccounts,
+        ) -> Self {
+            self.accounts.launch = AccountMeta::new(accounts.launch, false);
+
+            self.accounts.payer = AccountMeta::new(accounts.payer, true);
+
+            self.accounts.launchSigner = AccountMeta::new(accounts.launchSigner, false);
+
+            self.accounts.launchBaseVault = AccountMeta::new(accounts.launchBaseVault, false);
+
+            self.accounts.baseMint = AccountMeta::new(accounts.baseMint, false);
+
+            self.accounts.additionalTokensRecipient =
+                AccountMeta::new_readonly(accounts.additionalTokensRecipient, false);
+
+            self.accounts.additionalTokensRecipientTokenAccount =
+                AccountMeta::new(accounts.additionalTokensRecipientTokenAccount, false);
+
+            self.accounts.systemProgram = AccountMeta::new_readonly(accounts.systemProgram, false);
+
+            self.accounts.tokenProgram = AccountMeta::new_readonly(accounts.tokenProgram, false);
+
+            self.accounts.associatedTokenProgram =
+                AccountMeta::new_readonly(accounts.associatedTokenProgram, false);
+
+            self.accounts.eventAuthority =
+                AccountMeta::new_readonly(accounts.eventAuthority, false);
+
+            self.accounts.program = AccountMeta::new_readonly(accounts.program, false);
+
+            self
+        }
+
+        pub fn remaining_accounts(mut self, accounts: Vec<AccountMeta>) -> Self {
+            self.remaining_accounts = accounts;
+            self
+        }
+
+        fn to_account_metas(&self) -> Vec<AccountMeta> {
+            let mut metas = Vec::new();
+
+            metas.push(self.accounts.launch.clone());
+
+            metas.push(self.accounts.payer.clone());
+
+            metas.push(self.accounts.launchSigner.clone());
+
+            metas.push(self.accounts.launchBaseVault.clone());
+
+            metas.push(self.accounts.baseMint.clone());
+
+            metas.push(self.accounts.additionalTokensRecipient.clone());
+
+            metas.push(self.accounts.additionalTokensRecipientTokenAccount.clone());
+
+            metas.push(self.accounts.systemProgram.clone());
+
+            metas.push(self.accounts.tokenProgram.clone());
+
+            metas.push(self.accounts.associatedTokenProgram.clone());
+
+            metas.push(self.accounts.eventAuthority.clone());
+
+            metas.push(self.accounts.program.clone());
+
+            metas.extend(self.remaining_accounts.clone());
+            metas
+        }
+
+        pub fn instruction(&self) -> Instruction {
+            let mut buffer: Vec<u8> = Vec::new();
+
+            buffer.extend_from_slice(&Self::discriminator());
+
+            self.data.serialize(&mut buffer).unwrap();
+
+            Instruction::new_with_bytes(program_id(), &buffer, self.to_account_metas())
+        }
+    }
+
+    // ....................................................................
+    // Instruction: InitializePerformancePackage
+    // ....................................................................
+
+    /// Main instruction struct for InitializePerformancePackage
+    pub struct InitializePerformancePackageInstruction {
+        pub accounts: InitializePerformancePackageInstructionAccountMetas,
+        pub data: InitializePerformancePackageInstructionData,
+        pub remaining_accounts: Vec<AccountMeta>,
+    }
+
+    /// Account metadata for InitializePerformancePackage instruction
+    #[derive(Debug, Clone, Default)]
+    pub struct InitializePerformancePackageInstructionAccountMetas {
+        pub launch: AccountMeta,
+
+        pub payer: AccountMeta,
+
+        pub launchSigner: AccountMeta,
+
+        pub launchBaseVault: AccountMeta,
+
+        pub baseMint: AccountMeta,
+
+        pub dao: AccountMeta,
+
+        pub squadsMultisig: AccountMeta,
+
+        pub squadsMultisigVault: AccountMeta,
+
+        pub performancePackage: AccountMeta,
+
+        pub performancePackageTokenAccount: AccountMeta,
+
+        pub systemProgram: AccountMeta,
+
+        pub tokenProgram: AccountMeta,
+
+        pub associatedTokenProgram: AccountMeta,
+
+        pub squadsProgram: AccountMeta,
+
+        pub priceBasedPerformancePackageProgram: AccountMeta,
+
+        pub priceBasedPerformancePackageEventAuthority: AccountMeta,
+
+        pub eventAuthority: AccountMeta,
+
+        pub program: AccountMeta,
+    }
+
+    /// Account pubkeys for InitializePerformancePackage instruction
+    #[derive(Debug, Clone)]
+    pub struct InitializePerformancePackageInstructionAccounts {
+        pub launch: Pubkey,
+
+        pub payer: Pubkey,
+
+        pub launchSigner: Pubkey,
+
+        pub launchBaseVault: Pubkey,
+
+        pub baseMint: Pubkey,
+
+        pub dao: Pubkey,
+
+        pub squadsMultisig: Pubkey,
+
+        pub squadsMultisigVault: Pubkey,
+
+        pub performancePackage: Pubkey,
+
+        pub performancePackageTokenAccount: Pubkey,
+
+        pub systemProgram: Pubkey,
+
+        pub tokenProgram: Pubkey,
+
+        pub associatedTokenProgram: Pubkey,
+
+        pub squadsProgram: Pubkey,
+
+        pub priceBasedPerformancePackageProgram: Pubkey,
+
+        pub priceBasedPerformancePackageEventAuthority: Pubkey,
+
+        pub eventAuthority: Pubkey,
+
+        pub program: Pubkey,
+    }
+
+    impl InitializePerformancePackageInstructionAccounts {
+        pub fn new(
+            launch: Pubkey,
+
+            payer: Pubkey,
+
+            launchSigner: Pubkey,
+
+            launchBaseVault: Pubkey,
+
+            baseMint: Pubkey,
+
+            dao: Pubkey,
+
+            squadsMultisig: Pubkey,
+
+            squadsMultisigVault: Pubkey,
+
+            performancePackage: Pubkey,
+
+            performancePackageTokenAccount: Pubkey,
+
+            systemProgram: Pubkey,
+
+            tokenProgram: Pubkey,
+
+            associatedTokenProgram: Pubkey,
+
+            squadsProgram: Pubkey,
+
+            priceBasedPerformancePackageProgram: Pubkey,
+
+            priceBasedPerformancePackageEventAuthority: Pubkey,
+
+            eventAuthority: Pubkey,
+
+            program: Pubkey,
+        ) -> Self {
+            Self {
+                launch,
+
+                payer,
+
+                launchSigner,
+
+                launchBaseVault,
+
+                baseMint,
+
+                dao,
+
+                squadsMultisig,
+
+                squadsMultisigVault,
+
+                performancePackage,
+
+                performancePackageTokenAccount,
+
+                systemProgram,
+
+                tokenProgram,
+
+                associatedTokenProgram,
+
+                squadsProgram,
+
+                priceBasedPerformancePackageProgram,
+
+                priceBasedPerformancePackageEventAuthority,
+
+                eventAuthority,
+
+                program,
+            }
+        }
+    }
+
+    /// Instruction data for InitializePerformancePackage
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    pub struct InitializePerformancePackageInstructionData {}
+
+    impl InitializePerformancePackageInstructionData {
+        pub fn new() -> Self {
+            Self {}
+        }
+    }
+
+    /// Implementation for InitializePerformancePackageInstruction
+    impl InitializePerformancePackageInstruction {
+        fn discriminator() -> [u8; 8] {
+            [3u8, 171u8, 56u8, 55u8, 135u8, 100u8, 163u8, 186u8]
+        }
+
+        pub fn data(data: InitializePerformancePackageInstructionData) -> Self {
+            Self {
+                accounts: InitializePerformancePackageInstructionAccountMetas::default(),
+                data,
+                remaining_accounts: Vec::new(),
+            }
+        }
+
+        pub fn accounts(
+            mut self,
+            accounts: InitializePerformancePackageInstructionAccounts,
+        ) -> Self {
+            self.accounts.launch = AccountMeta::new(accounts.launch, false);
+
+            self.accounts.payer = AccountMeta::new(accounts.payer, true);
+
+            self.accounts.launchSigner = AccountMeta::new(accounts.launchSigner, false);
+
+            self.accounts.launchBaseVault = AccountMeta::new(accounts.launchBaseVault, false);
+
+            self.accounts.baseMint = AccountMeta::new(accounts.baseMint, false);
+
+            self.accounts.dao = AccountMeta::new_readonly(accounts.dao, false);
+
+            self.accounts.squadsMultisig =
+                AccountMeta::new_readonly(accounts.squadsMultisig, false);
+
+            self.accounts.squadsMultisigVault =
+                AccountMeta::new_readonly(accounts.squadsMultisigVault, false);
+
+            self.accounts.performancePackage = AccountMeta::new(accounts.performancePackage, false);
+
+            self.accounts.performancePackageTokenAccount =
+                AccountMeta::new(accounts.performancePackageTokenAccount, false);
+
+            self.accounts.systemProgram = AccountMeta::new_readonly(accounts.systemProgram, false);
+
+            self.accounts.tokenProgram = AccountMeta::new_readonly(accounts.tokenProgram, false);
+
+            self.accounts.associatedTokenProgram =
+                AccountMeta::new_readonly(accounts.associatedTokenProgram, false);
+
+            self.accounts.squadsProgram = AccountMeta::new_readonly(accounts.squadsProgram, false);
+
+            self.accounts.priceBasedPerformancePackageProgram =
+                AccountMeta::new_readonly(accounts.priceBasedPerformancePackageProgram, false);
+
+            self.accounts.priceBasedPerformancePackageEventAuthority = AccountMeta::new_readonly(
+                accounts.priceBasedPerformancePackageEventAuthority,
+                false,
+            );
+
+            self.accounts.eventAuthority =
+                AccountMeta::new_readonly(accounts.eventAuthority, false);
+
+            self.accounts.program = AccountMeta::new_readonly(accounts.program, false);
+
+            self
+        }
+
+        pub fn remaining_accounts(mut self, accounts: Vec<AccountMeta>) -> Self {
+            self.remaining_accounts = accounts;
+            self
+        }
+
+        fn to_account_metas(&self) -> Vec<AccountMeta> {
+            let mut metas = Vec::new();
+
+            metas.push(self.accounts.launch.clone());
+
+            metas.push(self.accounts.payer.clone());
+
+            metas.push(self.accounts.launchSigner.clone());
+
+            metas.push(self.accounts.launchBaseVault.clone());
+
+            metas.push(self.accounts.baseMint.clone());
+
+            metas.push(self.accounts.dao.clone());
+
+            metas.push(self.accounts.squadsMultisig.clone());
+
+            metas.push(self.accounts.squadsMultisigVault.clone());
+
+            metas.push(self.accounts.performancePackage.clone());
+
+            metas.push(self.accounts.performancePackageTokenAccount.clone());
+
+            metas.push(self.accounts.systemProgram.clone());
+
+            metas.push(self.accounts.tokenProgram.clone());
+
+            metas.push(self.accounts.associatedTokenProgram.clone());
+
+            metas.push(self.accounts.squadsProgram.clone());
+
+            metas.push(self.accounts.priceBasedPerformancePackageProgram.clone());
+
+            metas.push(
+                self.accounts
+                    .priceBasedPerformancePackageEventAuthority
+                    .clone(),
+            );
+
+            metas.push(self.accounts.eventAuthority.clone());
+
+            metas.push(self.accounts.program.clone());
+
+            metas.extend(self.remaining_accounts.clone());
+            metas
+        }
+
+        pub fn instruction(&self) -> Instruction {
+            let mut buffer: Vec<u8> = Vec::new();
+
+            buffer.extend_from_slice(&Self::discriminator());
+
+            self.data.serialize(&mut buffer).unwrap();
+
+            Instruction::new_with_bytes(program_id(), &buffer, self.to_account_metas())
+        }
+    }
+
+    // ....................................................................
+    // Instruction: ResizeFundingRecord
+    // ....................................................................
+
+    /// Main instruction struct for ResizeFundingRecord
+    pub struct ResizeFundingRecordInstruction {
+        pub accounts: ResizeFundingRecordInstructionAccountMetas,
+        pub data: ResizeFundingRecordInstructionData,
+        pub remaining_accounts: Vec<AccountMeta>,
+    }
+
+    /// Account metadata for ResizeFundingRecord instruction
+    #[derive(Debug, Clone, Default)]
+    pub struct ResizeFundingRecordInstructionAccountMetas {
+        pub fundingRecord: AccountMeta,
+
+        pub payer: AccountMeta,
+
+        pub systemProgram: AccountMeta,
+    }
+
+    /// Account pubkeys for ResizeFundingRecord instruction
+    #[derive(Debug, Clone)]
+    pub struct ResizeFundingRecordInstructionAccounts {
+        pub fundingRecord: Pubkey,
+
+        pub payer: Pubkey,
+
+        pub systemProgram: Pubkey,
+    }
+
+    impl ResizeFundingRecordInstructionAccounts {
+        pub fn new(fundingRecord: Pubkey, payer: Pubkey, systemProgram: Pubkey) -> Self {
+            Self {
+                fundingRecord,
+
+                payer,
+
+                systemProgram,
+            }
+        }
+    }
+
+    /// Instruction data for ResizeFundingRecord
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    pub struct ResizeFundingRecordInstructionData {}
+
+    impl ResizeFundingRecordInstructionData {
+        pub fn new() -> Self {
+            Self {}
+        }
+    }
+
+    /// Implementation for ResizeFundingRecordInstruction
+    impl ResizeFundingRecordInstruction {
+        fn discriminator() -> [u8; 8] {
+            [134u8, 103u8, 232u8, 47u8, 182u8, 183u8, 198u8, 5u8]
+        }
+
+        pub fn data(data: ResizeFundingRecordInstructionData) -> Self {
+            Self {
+                accounts: ResizeFundingRecordInstructionAccountMetas::default(),
+                data,
+                remaining_accounts: Vec::new(),
+            }
+        }
+
+        pub fn accounts(mut self, accounts: ResizeFundingRecordInstructionAccounts) -> Self {
+            self.accounts.fundingRecord = AccountMeta::new(accounts.fundingRecord, false);
+
+            self.accounts.payer = AccountMeta::new(accounts.payer, true);
+
+            self.accounts.systemProgram = AccountMeta::new_readonly(accounts.systemProgram, false);
+
+            self
+        }
+
+        pub fn remaining_accounts(mut self, accounts: Vec<AccountMeta>) -> Self {
+            self.remaining_accounts = accounts;
+            self
+        }
+
+        fn to_account_metas(&self) -> Vec<AccountMeta> {
+            let mut metas = Vec::new();
+
+            metas.push(self.accounts.fundingRecord.clone());
+
+            metas.push(self.accounts.payer.clone());
+
+            metas.push(self.accounts.systemProgram.clone());
+
+            metas.extend(self.remaining_accounts.clone());
+            metas
+        }
+
+        pub fn instruction(&self) -> Instruction {
+            let mut buffer: Vec<u8> = Vec::new();
+
+            buffer.extend_from_slice(&Self::discriminator());
+
+            self.data.serialize(&mut buffer).unwrap();
+
+            Instruction::new_with_bytes(program_id(), &buffer, self.to_account_metas())
+        }
+    }
+
+    // ....................................................................
+    // Instruction: ResizeLaunch
+    // ....................................................................
+
+    /// Main instruction struct for ResizeLaunch
+    pub struct ResizeLaunchInstruction {
+        pub accounts: ResizeLaunchInstructionAccountMetas,
+        pub data: ResizeLaunchInstructionData,
+        pub remaining_accounts: Vec<AccountMeta>,
+    }
+
+    /// Account metadata for ResizeLaunch instruction
+    #[derive(Debug, Clone, Default)]
+    pub struct ResizeLaunchInstructionAccountMetas {
+        pub launch: AccountMeta,
+
+        pub payer: AccountMeta,
+
+        pub systemProgram: AccountMeta,
+    }
+
+    /// Account pubkeys for ResizeLaunch instruction
+    #[derive(Debug, Clone)]
+    pub struct ResizeLaunchInstructionAccounts {
+        pub launch: Pubkey,
+
+        pub payer: Pubkey,
+
+        pub systemProgram: Pubkey,
+    }
+
+    impl ResizeLaunchInstructionAccounts {
+        pub fn new(launch: Pubkey, payer: Pubkey, systemProgram: Pubkey) -> Self {
+            Self {
+                launch,
+
+                payer,
+
+                systemProgram,
+            }
+        }
+    }
+
+    /// Instruction data for ResizeLaunch
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    pub struct ResizeLaunchInstructionData {}
+
+    impl ResizeLaunchInstructionData {
+        pub fn new() -> Self {
+            Self {}
+        }
+    }
+
+    /// Implementation for ResizeLaunchInstruction
+    impl ResizeLaunchInstruction {
+        fn discriminator() -> [u8; 8] {
+            [3u8, 23u8, 109u8, 180u8, 59u8, 58u8, 163u8, 211u8]
+        }
+
+        pub fn data(data: ResizeLaunchInstructionData) -> Self {
+            Self {
+                accounts: ResizeLaunchInstructionAccountMetas::default(),
+                data,
+                remaining_accounts: Vec::new(),
+            }
+        }
+
+        pub fn accounts(mut self, accounts: ResizeLaunchInstructionAccounts) -> Self {
+            self.accounts.launch = AccountMeta::new(accounts.launch, false);
+
+            self.accounts.payer = AccountMeta::new(accounts.payer, true);
+
+            self.accounts.systemProgram = AccountMeta::new_readonly(accounts.systemProgram, false);
+
+            self
+        }
+
+        pub fn remaining_accounts(mut self, accounts: Vec<AccountMeta>) -> Self {
+            self.remaining_accounts = accounts;
+            self
+        }
+
+        fn to_account_metas(&self) -> Vec<AccountMeta> {
+            let mut metas = Vec::new();
+
+            metas.push(self.accounts.launch.clone());
+
+            metas.push(self.accounts.payer.clone());
+
+            metas.push(self.accounts.systemProgram.clone());
+
+            metas.extend(self.remaining_accounts.clone());
+            metas
+        }
+
+        pub fn instruction(&self) -> Instruction {
+            let mut buffer: Vec<u8> = Vec::new();
+
+            buffer.extend_from_slice(&Self::discriminator());
+
+            self.data.serialize(&mut buffer).unwrap();
+
+            Instruction::new_with_bytes(program_id(), &buffer, self.to_account_metas())
+        }
+    }
+
     // ------------------------------------------------------------------------
     // Data Accounts (with discriminators)
     // ------------------------------------------------------------------------
 
     /// AccountDiscriminator implementation for FundingRecord
     impl AccountDiscriminator for FundingRecord {
+        fn discriminator() -> &'static [u8] {
+            &[0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8]
+        }
+    }
+
+    /// AccountDiscriminator implementation for OldFundingRecord
+    impl AccountDiscriminator for OldFundingRecord {
         fn discriminator() -> &'static [u8] {
             &[0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8]
         }
@@ -3141,14 +4062,21 @@ pub mod launchpad {
         }
     }
 
+    /// AccountDiscriminator implementation for OldLaunch
+    impl AccountDiscriminator for OldLaunch {
+        fn discriminator() -> &'static [u8] {
+            &[0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8]
+        }
+    }
+
     // ------------------------------------------------------------------------
     // Errors
     // ------------------------------------------------------------------------
 
-    /// Program errors for launchpad
+    /// Program errors for launchpad_v7
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     #[repr(u32)]
-    pub enum LaunchpadError {
+    pub enum Launchpadv7Error {
         /// Invalid amount
         InvalidAmount = 6000,
 
@@ -3221,9 +4149,38 @@ pub mod launchpad {
         /// Minimum raise amount must be greater than or equal to $0.5 so that
         /// there's enough liquidity for the launch
         InvalidMinimumRaiseAmount = 6021,
+
+        /// The final raise amount has already been set
+        FinalRaiseAmountAlreadySet = 6022,
+
+        /// Total approved amount must be greater than or equal to the minimum
+        /// raise amount
+        TotalApprovedAmountTooLow = 6023,
+
+        /// Invalid additional tokens recipient - should be set if additional
+        /// tokens amount is greater than 0
+        InvalidAdditionalTokensRecipient = 6024,
+
+        /// No additional tokens recipient set
+        NoAdditionalTokensRecipientSet = 6025,
+
+        /// Additional tokens already claimed
+        AdditionalTokensAlreadyClaimed = 6026,
+
+        /// Funding record approval period is over
+        FundingRecordApprovalPeriodOver = 6027,
+
+        /// Performance package already initialized
+        PerformancePackageAlreadyInitialized = 6028,
+
+        /// Invalid DAO
+        InvalidDao = 6029,
+
+        /// Accumulator activation delay must be less than the launch duration
+        InvalidAccumulatorActivationDelaySeconds = 6030,
     }
 
-    impl LaunchpadError {
+    impl Launchpadv7Error {
         /// Get the error code
         pub fn code(&self) -> u32 {
             *self as u32
@@ -3277,6 +4234,24 @@ pub mod launchpad {
 
                 Self::InvalidMinimumRaiseAmount => "Minimum raise amount must be greater than or equal to $0.5 so that there's enough liquidity for the launch",
 
+                Self::FinalRaiseAmountAlreadySet => "The final raise amount has already been set",
+
+                Self::TotalApprovedAmountTooLow => "Total approved amount must be greater than or equal to the minimum raise amount",
+
+                Self::InvalidAdditionalTokensRecipient => "Invalid additional tokens recipient - should be set if additional tokens amount is greater than 0",
+
+                Self::NoAdditionalTokensRecipientSet => "No additional tokens recipient set",
+
+                Self::AdditionalTokensAlreadyClaimed => "Additional tokens already claimed",
+
+                Self::FundingRecordApprovalPeriodOver => "Funding record approval period is over",
+
+                Self::PerformancePackageAlreadyInitialized => "Performance package already initialized",
+
+                Self::InvalidDao => "Invalid DAO",
+
+                Self::InvalidAccumulatorActivationDelaySeconds => "Accumulator activation delay must be less than the launch duration",
+
             }
         }
 
@@ -3327,18 +4302,36 @@ pub mod launchpad {
 
                 6021 => Some(Self::InvalidMinimumRaiseAmount),
 
+                6022 => Some(Self::FinalRaiseAmountAlreadySet),
+
+                6023 => Some(Self::TotalApprovedAmountTooLow),
+
+                6024 => Some(Self::InvalidAdditionalTokensRecipient),
+
+                6025 => Some(Self::NoAdditionalTokensRecipientSet),
+
+                6026 => Some(Self::AdditionalTokensAlreadyClaimed),
+
+                6027 => Some(Self::FundingRecordApprovalPeriodOver),
+
+                6028 => Some(Self::PerformancePackageAlreadyInitialized),
+
+                6029 => Some(Self::InvalidDao),
+
+                6030 => Some(Self::InvalidAccumulatorActivationDelaySeconds),
+
                 _ => None,
             }
         }
     }
 
-    impl std::fmt::Display for LaunchpadError {
+    impl std::fmt::Display for Launchpadv7Error {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(f, "{}: {}", self.code(), self.msg())
         }
     }
 
-    impl std::error::Error for LaunchpadError {}
+    impl std::error::Error for Launchpadv7Error {}
 
     // ------------------------------------------------------------------------
     // Composite Accounts
@@ -3351,7 +4344,7 @@ pub mod launchpad {
 
         pub tokenMetadataProgram: AccountMeta,
 
-        pub autocratEventAuthority: AccountMeta,
+        pub futarchyEventAuthority: AccountMeta,
 
         pub squadsProgram: AccountMeta,
 
@@ -3359,9 +4352,9 @@ pub mod launchpad {
 
         pub squadsProgramConfigTreasury: AccountMeta,
 
-        pub priceBasedPerformancePackageProgram: AccountMeta,
+        pub bidWallProgram: AccountMeta,
 
-        pub priceBasedPerformancePackageEventAuthority: AccountMeta,
+        pub bidWallEventAuthority: AccountMeta,
     }
 
     impl StaticAccountsInstructionAccountMetas {
@@ -3372,7 +4365,7 @@ pub mod launchpad {
 
             metas.push(self.tokenMetadataProgram.clone());
 
-            metas.push(self.autocratEventAuthority.clone());
+            metas.push(self.futarchyEventAuthority.clone());
 
             metas.push(self.squadsProgram.clone());
 
@@ -3380,9 +4373,9 @@ pub mod launchpad {
 
             metas.push(self.squadsProgramConfigTreasury.clone());
 
-            metas.push(self.priceBasedPerformancePackageProgram.clone());
+            metas.push(self.bidWallProgram.clone());
 
-            metas.push(self.priceBasedPerformancePackageEventAuthority.clone());
+            metas.push(self.bidWallEventAuthority.clone());
 
             metas
         }
@@ -3393,8 +4386,8 @@ pub mod launchpad {
             self.tokenMetadataProgram =
                 AccountMeta::new_readonly(accounts.tokenMetadataProgram, false);
 
-            self.autocratEventAuthority =
-                AccountMeta::new_readonly(accounts.autocratEventAuthority, false);
+            self.futarchyEventAuthority =
+                AccountMeta::new_readonly(accounts.futarchyEventAuthority, false);
 
             self.squadsProgram = AccountMeta::new_readonly(accounts.squadsProgram, false);
 
@@ -3404,13 +4397,10 @@ pub mod launchpad {
             self.squadsProgramConfigTreasury =
                 AccountMeta::new(accounts.squadsProgramConfigTreasury, false);
 
-            self.priceBasedPerformancePackageProgram =
-                AccountMeta::new_readonly(accounts.priceBasedPerformancePackageProgram, false);
+            self.bidWallProgram = AccountMeta::new_readonly(accounts.bidWallProgram, false);
 
-            self.priceBasedPerformancePackageEventAuthority = AccountMeta::new_readonly(
-                accounts.priceBasedPerformancePackageEventAuthority,
-                false,
-            );
+            self.bidWallEventAuthority =
+                AccountMeta::new_readonly(accounts.bidWallEventAuthority, false);
         }
     }
 
@@ -3420,7 +4410,7 @@ pub mod launchpad {
 
         pub tokenMetadataProgram: Pubkey,
 
-        pub autocratEventAuthority: Pubkey,
+        pub futarchyEventAuthority: Pubkey,
 
         pub squadsProgram: Pubkey,
 
@@ -3428,9 +4418,9 @@ pub mod launchpad {
 
         pub squadsProgramConfigTreasury: Pubkey,
 
-        pub priceBasedPerformancePackageProgram: Pubkey,
+        pub bidWallProgram: Pubkey,
 
-        pub priceBasedPerformancePackageEventAuthority: Pubkey,
+        pub bidWallEventAuthority: Pubkey,
     }
 
     impl StaticAccountsInstructionAccounts {
@@ -3439,7 +4429,7 @@ pub mod launchpad {
 
             tokenMetadataProgram: Pubkey,
 
-            autocratEventAuthority: Pubkey,
+            futarchyEventAuthority: Pubkey,
 
             squadsProgram: Pubkey,
 
@@ -3447,16 +4437,16 @@ pub mod launchpad {
 
             squadsProgramConfigTreasury: Pubkey,
 
-            priceBasedPerformancePackageProgram: Pubkey,
+            bidWallProgram: Pubkey,
 
-            priceBasedPerformancePackageEventAuthority: Pubkey,
+            bidWallEventAuthority: Pubkey,
         ) -> Self {
             Self {
                 futarchyProgram,
 
                 tokenMetadataProgram,
 
-                autocratEventAuthority,
+                futarchyEventAuthority,
 
                 squadsProgram,
 
@@ -3464,9 +4454,9 @@ pub mod launchpad {
 
                 squadsProgramConfigTreasury,
 
-                priceBasedPerformancePackageProgram,
+                bidWallProgram,
 
-                priceBasedPerformancePackageEventAuthority,
+                bidWallEventAuthority,
             }
         }
     }
@@ -3669,7 +4659,7 @@ pub mod launchpad {
     // ------------------------------------------------------------------------
 
     /// Custom struct: CommonFields
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct CommonFields {
         pub slot: u64,
 
@@ -3690,20 +4680,8 @@ pub mod launchpad {
         }
     }
 
-    /// Custom struct: CompleteLaunchArgs
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
-    pub struct CompleteLaunchArgs {
-        pub finalRaiseAmount: Option<u64>,
-    }
-
-    impl CompleteLaunchArgs {
-        pub fn new(finalRaiseAmount: Option<u64>) -> Self {
-            Self { finalRaiseAmount }
-        }
-    }
-
     /// Custom struct: InitializeLaunchArgs
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct InitializeLaunchArgs {
         pub minimumRaiseAmount: u64,
 
@@ -3726,6 +4704,10 @@ pub mod launchpad {
         pub monthsUntilInsidersCanUnlock: u8,
 
         pub teamAddress: Pubkey,
+
+        pub additionalTokensAmount: u64,
+
+        pub accumulatorActivationDelaySeconds: u32,
     }
 
     impl InitializeLaunchArgs {
@@ -3751,6 +4733,10 @@ pub mod launchpad {
             monthsUntilInsidersCanUnlock: u8,
 
             teamAddress: Pubkey,
+
+            additionalTokensAmount: u64,
+
+            accumulatorActivationDelaySeconds: u32,
         ) -> Self {
             Self {
                 minimumRaiseAmount,
@@ -3774,12 +4760,16 @@ pub mod launchpad {
                 monthsUntilInsidersCanUnlock,
 
                 teamAddress,
+
+                additionalTokensAmount,
+
+                accumulatorActivationDelaySeconds,
             }
         }
     }
 
     /// Custom enum: LaunchState
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub enum LaunchState {
         Initialized,
 
@@ -3793,7 +4783,7 @@ pub mod launchpad {
     }
 
     /// Custom struct: FundingRecord
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct FundingRecord {
         pub pdaBump: u8,
 
@@ -3806,6 +4796,12 @@ pub mod launchpad {
         pub isTokensClaimed: bool,
 
         pub isUsdcRefunded: bool,
+
+        pub approvedAmount: u64,
+
+        pub committedAmountAccumulator: u128,
+
+        pub lastAccumulatorUpdate: i64,
     }
 
     impl FundingRecord {
@@ -3821,6 +4817,12 @@ pub mod launchpad {
             isTokensClaimed: bool,
 
             isUsdcRefunded: bool,
+
+            approvedAmount: u64,
+
+            committedAmountAccumulator: u128,
+
+            lastAccumulatorUpdate: i64,
         ) -> Self {
             Self {
                 pdaBump,
@@ -3834,12 +4836,70 @@ pub mod launchpad {
                 isTokensClaimed,
 
                 isUsdcRefunded,
+
+                approvedAmount,
+
+                committedAmountAccumulator,
+
+                lastAccumulatorUpdate,
+            }
+        }
+    }
+
+    /// Custom struct: OldFundingRecord
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
+    pub struct OldFundingRecord {
+        pub pdaBump: u8,
+
+        pub funder: Pubkey,
+
+        pub launch: Pubkey,
+
+        pub committedAmount: u64,
+
+        pub isTokensClaimed: bool,
+
+        pub isUsdcRefunded: bool,
+
+        pub approvedAmount: u64,
+    }
+
+    impl OldFundingRecord {
+        pub fn new(
+            pdaBump: u8,
+
+            funder: Pubkey,
+
+            launch: Pubkey,
+
+            committedAmount: u64,
+
+            isTokensClaimed: bool,
+
+            isUsdcRefunded: bool,
+
+            approvedAmount: u64,
+        ) -> Self {
+            Self {
+                pdaBump,
+
+                funder,
+
+                launch,
+
+                committedAmount,
+
+                isTokensClaimed,
+
+                isUsdcRefunded,
+
+                approvedAmount,
             }
         }
     }
 
     /// Custom struct: Launch
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct Launch {
         pub pdaBump: u8,
 
@@ -3869,8 +4929,6 @@ pub mod launchpad {
 
         pub totalCommittedAmount: u64,
 
-        pub finalRaiseAmount: Option<u64>,
-
         pub state: LaunchState,
 
         pub seqNum: u64,
@@ -3888,6 +4946,20 @@ pub mod launchpad {
         pub monthsUntilInsidersCanUnlock: u8,
 
         pub teamAddress: Pubkey,
+
+        pub totalApprovedAmount: u64,
+
+        pub additionalTokensAmount: u64,
+
+        pub additionalTokensRecipient: Option<Pubkey>,
+
+        pub additionalTokensClaimed: bool,
+
+        pub unixTimestampCompleted: Option<i64>,
+
+        pub isPerformancePackageInitialized: bool,
+
+        pub accumulatorActivationDelaySeconds: u32,
     }
 
     impl Launch {
@@ -3920,8 +4992,6 @@ pub mod launchpad {
 
             totalCommittedAmount: u64,
 
-            finalRaiseAmount: Option<u64>,
-
             state: LaunchState,
 
             seqNum: u64,
@@ -3939,6 +5009,20 @@ pub mod launchpad {
             monthsUntilInsidersCanUnlock: u8,
 
             teamAddress: Pubkey,
+
+            totalApprovedAmount: u64,
+
+            additionalTokensAmount: u64,
+
+            additionalTokensRecipient: Option<Pubkey>,
+
+            additionalTokensClaimed: bool,
+
+            unixTimestampCompleted: Option<i64>,
+
+            isPerformancePackageInitialized: bool,
+
+            accumulatorActivationDelaySeconds: u32,
         ) -> Self {
             Self {
                 pdaBump,
@@ -3969,7 +5053,191 @@ pub mod launchpad {
 
                 totalCommittedAmount,
 
-                finalRaiseAmount,
+                state,
+
+                seqNum,
+
+                secondsForLaunch,
+
+                dao,
+
+                daoVault,
+
+                performancePackageGrantee,
+
+                performancePackageTokenAmount,
+
+                monthsUntilInsidersCanUnlock,
+
+                teamAddress,
+
+                totalApprovedAmount,
+
+                additionalTokensAmount,
+
+                additionalTokensRecipient,
+
+                additionalTokensClaimed,
+
+                unixTimestampCompleted,
+
+                isPerformancePackageInitialized,
+
+                accumulatorActivationDelaySeconds,
+            }
+        }
+    }
+
+    /// Custom struct: OldLaunch
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
+    pub struct OldLaunch {
+        pub pdaBump: u8,
+
+        pub minimumRaiseAmount: u64,
+
+        pub monthlySpendingLimitAmount: u64,
+
+        pub monthlySpendingLimitMembers: Vec<Pubkey>,
+
+        pub launchAuthority: Pubkey,
+
+        pub launchSigner: Pubkey,
+
+        pub launchSignerPdaBump: u8,
+
+        pub launchQuoteVault: Pubkey,
+
+        pub launchBaseVault: Pubkey,
+
+        pub baseMint: Pubkey,
+
+        pub quoteMint: Pubkey,
+
+        pub unixTimestampStarted: Option<i64>,
+
+        pub unixTimestampClosed: Option<i64>,
+
+        pub totalCommittedAmount: u64,
+
+        pub state: LaunchState,
+
+        pub seqNum: u64,
+
+        pub secondsForLaunch: u32,
+
+        pub dao: Option<Pubkey>,
+
+        pub daoVault: Option<Pubkey>,
+
+        pub performancePackageGrantee: Pubkey,
+
+        pub performancePackageTokenAmount: u64,
+
+        pub monthsUntilInsidersCanUnlock: u8,
+
+        pub teamAddress: Pubkey,
+
+        pub totalApprovedAmount: u64,
+
+        pub additionalTokensAmount: u64,
+
+        pub additionalTokensRecipient: Option<Pubkey>,
+
+        pub additionalTokensClaimed: bool,
+
+        pub unixTimestampCompleted: Option<i64>,
+
+        pub isPerformancePackageInitialized: bool,
+    }
+
+    impl OldLaunch {
+        pub fn new(
+            pdaBump: u8,
+
+            minimumRaiseAmount: u64,
+
+            monthlySpendingLimitAmount: u64,
+
+            monthlySpendingLimitMembers: Vec<Pubkey>,
+
+            launchAuthority: Pubkey,
+
+            launchSigner: Pubkey,
+
+            launchSignerPdaBump: u8,
+
+            launchQuoteVault: Pubkey,
+
+            launchBaseVault: Pubkey,
+
+            baseMint: Pubkey,
+
+            quoteMint: Pubkey,
+
+            unixTimestampStarted: Option<i64>,
+
+            unixTimestampClosed: Option<i64>,
+
+            totalCommittedAmount: u64,
+
+            state: LaunchState,
+
+            seqNum: u64,
+
+            secondsForLaunch: u32,
+
+            dao: Option<Pubkey>,
+
+            daoVault: Option<Pubkey>,
+
+            performancePackageGrantee: Pubkey,
+
+            performancePackageTokenAmount: u64,
+
+            monthsUntilInsidersCanUnlock: u8,
+
+            teamAddress: Pubkey,
+
+            totalApprovedAmount: u64,
+
+            additionalTokensAmount: u64,
+
+            additionalTokensRecipient: Option<Pubkey>,
+
+            additionalTokensClaimed: bool,
+
+            unixTimestampCompleted: Option<i64>,
+
+            isPerformancePackageInitialized: bool,
+        ) -> Self {
+            Self {
+                pdaBump,
+
+                minimumRaiseAmount,
+
+                monthlySpendingLimitAmount,
+
+                monthlySpendingLimitMembers,
+
+                launchAuthority,
+
+                launchSigner,
+
+                launchSignerPdaBump,
+
+                launchQuoteVault,
+
+                launchBaseVault,
+
+                baseMint,
+
+                quoteMint,
+
+                unixTimestampStarted,
+
+                unixTimestampClosed,
+
+                totalCommittedAmount,
 
                 state,
 
@@ -3988,6 +5256,18 @@ pub mod launchpad {
                 monthsUntilInsidersCanUnlock,
 
                 teamAddress,
+
+                totalApprovedAmount,
+
+                additionalTokensAmount,
+
+                additionalTokensRecipient,
+
+                additionalTokensClaimed,
+
+                unixTimestampCompleted,
+
+                isPerformancePackageInitialized,
             }
         }
     }
@@ -4196,7 +5476,7 @@ pub mod futarchy {
     /// Implementation for InitializeDaoInstruction
     impl InitializeDaoInstruction {
         fn discriminator() -> [u8; 8] {
-            [128, 226, 96, 90, 39, 56, 24, 196]
+            [128u8, 226u8, 96u8, 90u8, 39u8, 56u8, 24u8, 196u8]
         }
 
         pub fn data(data: InitializeDaoInstructionData) -> Self {
@@ -4331,6 +5611,8 @@ pub mod futarchy {
 
         pub squadsProposal: AccountMeta,
 
+        pub squadsMultisig: AccountMeta,
+
         pub dao: AccountMeta,
 
         pub question: AccountMeta,
@@ -4357,6 +5639,8 @@ pub mod futarchy {
 
         pub squadsProposal: Pubkey,
 
+        pub squadsMultisig: Pubkey,
+
         pub dao: Pubkey,
 
         pub question: Pubkey,
@@ -4382,6 +5666,8 @@ pub mod futarchy {
 
             squadsProposal: Pubkey,
 
+            squadsMultisig: Pubkey,
+
             dao: Pubkey,
 
             question: Pubkey,
@@ -4404,6 +5690,8 @@ pub mod futarchy {
                 proposal,
 
                 squadsProposal,
+
+                squadsMultisig,
 
                 dao,
 
@@ -4456,6 +5744,9 @@ pub mod futarchy {
             self.accounts.squadsProposal =
                 AccountMeta::new_readonly(accounts.squadsProposal, false);
 
+            self.accounts.squadsMultisig =
+                AccountMeta::new_readonly(accounts.squadsMultisig, false);
+
             self.accounts.dao = AccountMeta::new(accounts.dao, false);
 
             self.accounts.question = AccountMeta::new_readonly(accounts.question, false);
@@ -4489,6 +5780,8 @@ pub mod futarchy {
             metas.push(self.accounts.proposal.clone());
 
             metas.push(self.accounts.squadsProposal.clone());
+
+            metas.push(self.accounts.squadsMultisig.clone());
 
             metas.push(self.accounts.dao.clone());
 
@@ -4989,6 +6282,10 @@ pub mod futarchy {
 
         pub ammFailQuoteVault: AccountMeta,
 
+        pub squadsMultisig: AccountMeta,
+
+        pub squadsProposal: AccountMeta,
+
         pub systemProgram: AccountMeta,
 
         pub tokenProgram: AccountMeta,
@@ -5029,6 +6326,10 @@ pub mod futarchy {
 
         pub ammFailQuoteVault: Pubkey,
 
+        pub squadsMultisig: Pubkey,
+
+        pub squadsProposal: Pubkey,
+
         pub systemProgram: Pubkey,
 
         pub tokenProgram: Pubkey,
@@ -5068,6 +6369,10 @@ pub mod futarchy {
 
             ammFailQuoteVault: Pubkey,
 
+            squadsMultisig: Pubkey,
+
+            squadsProposal: Pubkey,
+
             systemProgram: Pubkey,
 
             tokenProgram: Pubkey,
@@ -5104,6 +6409,10 @@ pub mod futarchy {
                 ammFailBaseVault,
 
                 ammFailQuoteVault,
+
+                squadsMultisig,
+
+                squadsProposal,
 
                 systemProgram,
 
@@ -5169,6 +6478,12 @@ pub mod futarchy {
 
             self.accounts.ammFailQuoteVault = AccountMeta::new(accounts.ammFailQuoteVault, false);
 
+            self.accounts.squadsMultisig =
+                AccountMeta::new_readonly(accounts.squadsMultisig, false);
+
+            self.accounts.squadsProposal =
+                AccountMeta::new_readonly(accounts.squadsProposal, false);
+
             self.accounts.systemProgram = AccountMeta::new_readonly(accounts.systemProgram, false);
 
             self.accounts.tokenProgram = AccountMeta::new_readonly(accounts.tokenProgram, false);
@@ -5217,6 +6532,10 @@ pub mod futarchy {
             metas.push(self.accounts.ammFailBaseVault.clone());
 
             metas.push(self.accounts.ammFailQuoteVault.clone());
+
+            metas.push(self.accounts.squadsMultisig.clone());
+
+            metas.push(self.accounts.squadsProposal.clone());
 
             metas.push(self.accounts.systemProgram.clone());
 
@@ -7494,78 +8813,141 @@ pub mod futarchy {
     }
 
     // ....................................................................
-    // Instruction: ResizeDao
+    // Instruction: AdminApproveExecuteMultisigProposal
     // ....................................................................
 
-    /// Main instruction struct for ResizeDao
-    pub struct ResizeDaoInstruction {
-        pub accounts: ResizeDaoInstructionAccountMetas,
-        pub data: ResizeDaoInstructionData,
+    /// Main instruction struct for AdminApproveExecuteMultisigProposal
+    pub struct AdminApproveExecuteMultisigProposalInstruction {
+        pub accounts: AdminApproveExecuteMultisigProposalInstructionAccountMetas,
+        pub data: AdminApproveExecuteMultisigProposalInstructionData,
         pub remaining_accounts: Vec<AccountMeta>,
     }
 
-    /// Account metadata for ResizeDao instruction
+    /// Account metadata for AdminApproveExecuteMultisigProposal instruction
     #[derive(Debug, Clone, Default)]
-    pub struct ResizeDaoInstructionAccountMetas {
+    pub struct AdminApproveExecuteMultisigProposalInstructionAccountMetas {
         pub dao: AccountMeta,
 
-        pub payer: AccountMeta,
+        pub admin: AccountMeta,
 
-        pub systemProgram: AccountMeta,
+        pub squadsMultisig: AccountMeta,
+
+        pub squadsMultisigProposal: AccountMeta,
+
+        pub squadsMultisigVaultTransaction: AccountMeta,
+
+        pub squadsMultisigProgram: AccountMeta,
+
+        pub eventAuthority: AccountMeta,
+
+        pub program: AccountMeta,
     }
 
-    /// Account pubkeys for ResizeDao instruction
+    /// Account pubkeys for AdminApproveExecuteMultisigProposal instruction
     #[derive(Debug, Clone)]
-    pub struct ResizeDaoInstructionAccounts {
+    pub struct AdminApproveExecuteMultisigProposalInstructionAccounts {
         pub dao: Pubkey,
 
-        pub payer: Pubkey,
+        pub admin: Pubkey,
 
-        pub systemProgram: Pubkey,
+        pub squadsMultisig: Pubkey,
+
+        pub squadsMultisigProposal: Pubkey,
+
+        pub squadsMultisigVaultTransaction: Pubkey,
+
+        pub squadsMultisigProgram: Pubkey,
+
+        pub eventAuthority: Pubkey,
+
+        pub program: Pubkey,
     }
 
-    impl ResizeDaoInstructionAccounts {
-        pub fn new(dao: Pubkey, payer: Pubkey, systemProgram: Pubkey) -> Self {
+    impl AdminApproveExecuteMultisigProposalInstructionAccounts {
+        pub fn new(
+            dao: Pubkey,
+
+            admin: Pubkey,
+
+            squadsMultisig: Pubkey,
+
+            squadsMultisigProposal: Pubkey,
+
+            squadsMultisigVaultTransaction: Pubkey,
+
+            squadsMultisigProgram: Pubkey,
+
+            eventAuthority: Pubkey,
+
+            program: Pubkey,
+        ) -> Self {
             Self {
                 dao,
 
-                payer,
+                admin,
 
-                systemProgram,
+                squadsMultisig,
+
+                squadsMultisigProposal,
+
+                squadsMultisigVaultTransaction,
+
+                squadsMultisigProgram,
+
+                eventAuthority,
+
+                program,
             }
         }
     }
 
-    /// Instruction data for ResizeDao
+    /// Instruction data for AdminApproveExecuteMultisigProposal
     #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
-    pub struct ResizeDaoInstructionData {}
+    pub struct AdminApproveExecuteMultisigProposalInstructionData {}
 
-    impl ResizeDaoInstructionData {
+    impl AdminApproveExecuteMultisigProposalInstructionData {
         pub fn new() -> Self {
             Self {}
         }
     }
 
-    /// Implementation for ResizeDaoInstruction
-    impl ResizeDaoInstruction {
+    /// Implementation for AdminApproveExecuteMultisigProposalInstruction
+    impl AdminApproveExecuteMultisigProposalInstruction {
         fn discriminator() -> [u8; 8] {
-            [142u8, 52u8, 68u8, 81u8, 113u8, 14u8, 90u8, 40u8]
+            [99u8, 14u8, 66u8, 64u8, 95u8, 59u8, 11u8, 96u8]
         }
 
-        pub fn data(data: ResizeDaoInstructionData) -> Self {
+        pub fn data(data: AdminApproveExecuteMultisigProposalInstructionData) -> Self {
             Self {
-                accounts: ResizeDaoInstructionAccountMetas::default(),
+                accounts: AdminApproveExecuteMultisigProposalInstructionAccountMetas::default(),
                 data,
                 remaining_accounts: Vec::new(),
             }
         }
 
-        pub fn accounts(mut self, accounts: ResizeDaoInstructionAccounts) -> Self {
+        pub fn accounts(
+            mut self,
+            accounts: AdminApproveExecuteMultisigProposalInstructionAccounts,
+        ) -> Self {
             self.accounts.dao = AccountMeta::new(accounts.dao, false);
 
-            self.accounts.payer = AccountMeta::new(accounts.payer, true);
+            self.accounts.admin = AccountMeta::new(accounts.admin, true);
 
-            self.accounts.systemProgram = AccountMeta::new_readonly(accounts.systemProgram, false);
+            self.accounts.squadsMultisig = AccountMeta::new(accounts.squadsMultisig, false);
+
+            self.accounts.squadsMultisigProposal =
+                AccountMeta::new(accounts.squadsMultisigProposal, false);
+
+            self.accounts.squadsMultisigVaultTransaction =
+                AccountMeta::new(accounts.squadsMultisigVaultTransaction, false);
+
+            self.accounts.squadsMultisigProgram =
+                AccountMeta::new_readonly(accounts.squadsMultisigProgram, false);
+
+            self.accounts.eventAuthority =
+                AccountMeta::new_readonly(accounts.eventAuthority, false);
+
+            self.accounts.program = AccountMeta::new_readonly(accounts.program, false);
 
             self
         }
@@ -7580,9 +8962,19 @@ pub mod futarchy {
 
             metas.push(self.accounts.dao.clone());
 
-            metas.push(self.accounts.payer.clone());
+            metas.push(self.accounts.admin.clone());
 
-            metas.push(self.accounts.systemProgram.clone());
+            metas.push(self.accounts.squadsMultisig.clone());
+
+            metas.push(self.accounts.squadsMultisigProposal.clone());
+
+            metas.push(self.accounts.squadsMultisigVaultTransaction.clone());
+
+            metas.push(self.accounts.squadsMultisigProgram.clone());
+
+            metas.push(self.accounts.eventAuthority.clone());
+
+            metas.push(self.accounts.program.clone());
 
             metas.extend(self.remaining_accounts.clone());
             metas
@@ -7600,78 +8992,320 @@ pub mod futarchy {
     }
 
     // ....................................................................
-    // Instruction: ResizeProposal
+    // Instruction: AdminCancelProposal
     // ....................................................................
 
-    /// Main instruction struct for ResizeProposal
-    pub struct ResizeProposalInstruction {
-        pub accounts: ResizeProposalInstructionAccountMetas,
-        pub data: ResizeProposalInstructionData,
+    /// Main instruction struct for AdminCancelProposal
+    pub struct AdminCancelProposalInstruction {
+        pub accounts: AdminCancelProposalInstructionAccountMetas,
+        pub data: AdminCancelProposalInstructionData,
         pub remaining_accounts: Vec<AccountMeta>,
     }
 
-    /// Account metadata for ResizeProposal instruction
+    /// Account metadata for AdminCancelProposal instruction
     #[derive(Debug, Clone, Default)]
-    pub struct ResizeProposalInstructionAccountMetas {
+    pub struct AdminCancelProposalInstructionAccountMetas {
         pub proposal: AccountMeta,
 
-        pub payer: AccountMeta,
+        pub dao: AccountMeta,
 
-        pub systemProgram: AccountMeta,
+        pub question: AccountMeta,
+
+        pub squadsProposal: AccountMeta,
+
+        pub squadsMultisig: AccountMeta,
+
+        pub squadsMultisigProgram: AccountMeta,
+
+        pub ammPassBaseVault: AccountMeta,
+
+        pub ammPassQuoteVault: AccountMeta,
+
+        pub ammFailBaseVault: AccountMeta,
+
+        pub ammFailQuoteVault: AccountMeta,
+
+        pub ammBaseVault: AccountMeta,
+
+        pub ammQuoteVault: AccountMeta,
+
+        pub vaultProgram: AccountMeta,
+
+        pub vaultEventAuthority: AccountMeta,
+
+        pub tokenProgram: AccountMeta,
+
+        pub quoteVault: AccountMeta,
+
+        pub quoteVaultUnderlyingTokenAccount: AccountMeta,
+
+        pub passQuoteMint: AccountMeta,
+
+        pub failQuoteMint: AccountMeta,
+
+        pub passBaseMint: AccountMeta,
+
+        pub failBaseMint: AccountMeta,
+
+        pub baseVault: AccountMeta,
+
+        pub baseVaultUnderlyingTokenAccount: AccountMeta,
+
+        pub admin: AccountMeta,
+
+        pub eventAuthority: AccountMeta,
+
+        pub program: AccountMeta,
     }
 
-    /// Account pubkeys for ResizeProposal instruction
+    /// Account pubkeys for AdminCancelProposal instruction
     #[derive(Debug, Clone)]
-    pub struct ResizeProposalInstructionAccounts {
+    pub struct AdminCancelProposalInstructionAccounts {
         pub proposal: Pubkey,
 
-        pub payer: Pubkey,
+        pub dao: Pubkey,
 
-        pub systemProgram: Pubkey,
+        pub question: Pubkey,
+
+        pub squadsProposal: Pubkey,
+
+        pub squadsMultisig: Pubkey,
+
+        pub squadsMultisigProgram: Pubkey,
+
+        pub ammPassBaseVault: Pubkey,
+
+        pub ammPassQuoteVault: Pubkey,
+
+        pub ammFailBaseVault: Pubkey,
+
+        pub ammFailQuoteVault: Pubkey,
+
+        pub ammBaseVault: Pubkey,
+
+        pub ammQuoteVault: Pubkey,
+
+        pub vaultProgram: Pubkey,
+
+        pub vaultEventAuthority: Pubkey,
+
+        pub tokenProgram: Pubkey,
+
+        pub quoteVault: Pubkey,
+
+        pub quoteVaultUnderlyingTokenAccount: Pubkey,
+
+        pub passQuoteMint: Pubkey,
+
+        pub failQuoteMint: Pubkey,
+
+        pub passBaseMint: Pubkey,
+
+        pub failBaseMint: Pubkey,
+
+        pub baseVault: Pubkey,
+
+        pub baseVaultUnderlyingTokenAccount: Pubkey,
+
+        pub admin: Pubkey,
+
+        pub eventAuthority: Pubkey,
+
+        pub program: Pubkey,
     }
 
-    impl ResizeProposalInstructionAccounts {
-        pub fn new(proposal: Pubkey, payer: Pubkey, systemProgram: Pubkey) -> Self {
+    impl AdminCancelProposalInstructionAccounts {
+        pub fn new(
+            proposal: Pubkey,
+
+            dao: Pubkey,
+
+            question: Pubkey,
+
+            squadsProposal: Pubkey,
+
+            squadsMultisig: Pubkey,
+
+            squadsMultisigProgram: Pubkey,
+
+            ammPassBaseVault: Pubkey,
+
+            ammPassQuoteVault: Pubkey,
+
+            ammFailBaseVault: Pubkey,
+
+            ammFailQuoteVault: Pubkey,
+
+            ammBaseVault: Pubkey,
+
+            ammQuoteVault: Pubkey,
+
+            vaultProgram: Pubkey,
+
+            vaultEventAuthority: Pubkey,
+
+            tokenProgram: Pubkey,
+
+            quoteVault: Pubkey,
+
+            quoteVaultUnderlyingTokenAccount: Pubkey,
+
+            passQuoteMint: Pubkey,
+
+            failQuoteMint: Pubkey,
+
+            passBaseMint: Pubkey,
+
+            failBaseMint: Pubkey,
+
+            baseVault: Pubkey,
+
+            baseVaultUnderlyingTokenAccount: Pubkey,
+
+            admin: Pubkey,
+
+            eventAuthority: Pubkey,
+
+            program: Pubkey,
+        ) -> Self {
             Self {
                 proposal,
 
-                payer,
+                dao,
 
-                systemProgram,
+                question,
+
+                squadsProposal,
+
+                squadsMultisig,
+
+                squadsMultisigProgram,
+
+                ammPassBaseVault,
+
+                ammPassQuoteVault,
+
+                ammFailBaseVault,
+
+                ammFailQuoteVault,
+
+                ammBaseVault,
+
+                ammQuoteVault,
+
+                vaultProgram,
+
+                vaultEventAuthority,
+
+                tokenProgram,
+
+                quoteVault,
+
+                quoteVaultUnderlyingTokenAccount,
+
+                passQuoteMint,
+
+                failQuoteMint,
+
+                passBaseMint,
+
+                failBaseMint,
+
+                baseVault,
+
+                baseVaultUnderlyingTokenAccount,
+
+                admin,
+
+                eventAuthority,
+
+                program,
             }
         }
     }
 
-    /// Instruction data for ResizeProposal
+    /// Instruction data for AdminCancelProposal
     #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
-    pub struct ResizeProposalInstructionData {}
+    pub struct AdminCancelProposalInstructionData {}
 
-    impl ResizeProposalInstructionData {
+    impl AdminCancelProposalInstructionData {
         pub fn new() -> Self {
             Self {}
         }
     }
 
-    /// Implementation for ResizeProposalInstruction
-    impl ResizeProposalInstruction {
+    /// Implementation for AdminCancelProposalInstruction
+    impl AdminCancelProposalInstruction {
         fn discriminator() -> [u8; 8] {
-            [40u8, 213u8, 88u8, 206u8, 213u8, 184u8, 30u8, 181u8]
+            [95u8, 233u8, 121u8, 193u8, 90u8, 80u8, 147u8, 255u8]
         }
 
-        pub fn data(data: ResizeProposalInstructionData) -> Self {
+        pub fn data(data: AdminCancelProposalInstructionData) -> Self {
             Self {
-                accounts: ResizeProposalInstructionAccountMetas::default(),
+                accounts: AdminCancelProposalInstructionAccountMetas::default(),
                 data,
                 remaining_accounts: Vec::new(),
             }
         }
 
-        pub fn accounts(mut self, accounts: ResizeProposalInstructionAccounts) -> Self {
+        pub fn accounts(mut self, accounts: AdminCancelProposalInstructionAccounts) -> Self {
             self.accounts.proposal = AccountMeta::new(accounts.proposal, false);
 
-            self.accounts.payer = AccountMeta::new(accounts.payer, true);
+            self.accounts.dao = AccountMeta::new(accounts.dao, false);
 
-            self.accounts.systemProgram = AccountMeta::new_readonly(accounts.systemProgram, false);
+            self.accounts.question = AccountMeta::new(accounts.question, false);
+
+            self.accounts.squadsProposal = AccountMeta::new(accounts.squadsProposal, false);
+
+            self.accounts.squadsMultisig =
+                AccountMeta::new_readonly(accounts.squadsMultisig, false);
+
+            self.accounts.squadsMultisigProgram =
+                AccountMeta::new_readonly(accounts.squadsMultisigProgram, false);
+
+            self.accounts.ammPassBaseVault = AccountMeta::new(accounts.ammPassBaseVault, false);
+
+            self.accounts.ammPassQuoteVault = AccountMeta::new(accounts.ammPassQuoteVault, false);
+
+            self.accounts.ammFailBaseVault = AccountMeta::new(accounts.ammFailBaseVault, false);
+
+            self.accounts.ammFailQuoteVault = AccountMeta::new(accounts.ammFailQuoteVault, false);
+
+            self.accounts.ammBaseVault = AccountMeta::new(accounts.ammBaseVault, false);
+
+            self.accounts.ammQuoteVault = AccountMeta::new(accounts.ammQuoteVault, false);
+
+            self.accounts.vaultProgram = AccountMeta::new_readonly(accounts.vaultProgram, false);
+
+            self.accounts.vaultEventAuthority =
+                AccountMeta::new_readonly(accounts.vaultEventAuthority, false);
+
+            self.accounts.tokenProgram = AccountMeta::new_readonly(accounts.tokenProgram, false);
+
+            self.accounts.quoteVault = AccountMeta::new(accounts.quoteVault, false);
+
+            self.accounts.quoteVaultUnderlyingTokenAccount =
+                AccountMeta::new(accounts.quoteVaultUnderlyingTokenAccount, false);
+
+            self.accounts.passQuoteMint = AccountMeta::new(accounts.passQuoteMint, false);
+
+            self.accounts.failQuoteMint = AccountMeta::new(accounts.failQuoteMint, false);
+
+            self.accounts.passBaseMint = AccountMeta::new(accounts.passBaseMint, false);
+
+            self.accounts.failBaseMint = AccountMeta::new(accounts.failBaseMint, false);
+
+            self.accounts.baseVault = AccountMeta::new(accounts.baseVault, false);
+
+            self.accounts.baseVaultUnderlyingTokenAccount =
+                AccountMeta::new(accounts.baseVaultUnderlyingTokenAccount, false);
+
+            self.accounts.admin = AccountMeta::new(accounts.admin, true);
+
+            self.accounts.eventAuthority =
+                AccountMeta::new_readonly(accounts.eventAuthority, false);
+
+            self.accounts.program = AccountMeta::new_readonly(accounts.program, false);
 
             self
         }
@@ -7686,9 +9320,192 @@ pub mod futarchy {
 
             metas.push(self.accounts.proposal.clone());
 
-            metas.push(self.accounts.payer.clone());
+            metas.push(self.accounts.dao.clone());
 
-            metas.push(self.accounts.systemProgram.clone());
+            metas.push(self.accounts.question.clone());
+
+            metas.push(self.accounts.squadsProposal.clone());
+
+            metas.push(self.accounts.squadsMultisig.clone());
+
+            metas.push(self.accounts.squadsMultisigProgram.clone());
+
+            metas.push(self.accounts.ammPassBaseVault.clone());
+
+            metas.push(self.accounts.ammPassQuoteVault.clone());
+
+            metas.push(self.accounts.ammFailBaseVault.clone());
+
+            metas.push(self.accounts.ammFailQuoteVault.clone());
+
+            metas.push(self.accounts.ammBaseVault.clone());
+
+            metas.push(self.accounts.ammQuoteVault.clone());
+
+            metas.push(self.accounts.vaultProgram.clone());
+
+            metas.push(self.accounts.vaultEventAuthority.clone());
+
+            metas.push(self.accounts.tokenProgram.clone());
+
+            metas.push(self.accounts.quoteVault.clone());
+
+            metas.push(self.accounts.quoteVaultUnderlyingTokenAccount.clone());
+
+            metas.push(self.accounts.passQuoteMint.clone());
+
+            metas.push(self.accounts.failQuoteMint.clone());
+
+            metas.push(self.accounts.passBaseMint.clone());
+
+            metas.push(self.accounts.failBaseMint.clone());
+
+            metas.push(self.accounts.baseVault.clone());
+
+            metas.push(self.accounts.baseVaultUnderlyingTokenAccount.clone());
+
+            metas.push(self.accounts.admin.clone());
+
+            metas.push(self.accounts.eventAuthority.clone());
+
+            metas.push(self.accounts.program.clone());
+
+            metas.extend(self.remaining_accounts.clone());
+            metas
+        }
+
+        pub fn instruction(&self) -> Instruction {
+            let mut buffer: Vec<u8> = Vec::new();
+
+            buffer.extend_from_slice(&Self::discriminator());
+
+            self.data.serialize(&mut buffer).unwrap();
+
+            Instruction::new_with_bytes(program_id(), &buffer, self.to_account_metas())
+        }
+    }
+
+    // ....................................................................
+    // Instruction: AdminRemoveProposal
+    // ....................................................................
+
+    /// Main instruction struct for AdminRemoveProposal
+    pub struct AdminRemoveProposalInstruction {
+        pub accounts: AdminRemoveProposalInstructionAccountMetas,
+        pub data: AdminRemoveProposalInstructionData,
+        pub remaining_accounts: Vec<AccountMeta>,
+    }
+
+    /// Account metadata for AdminRemoveProposal instruction
+    #[derive(Debug, Clone, Default)]
+    pub struct AdminRemoveProposalInstructionAccountMetas {
+        pub proposal: AccountMeta,
+
+        pub dao: AccountMeta,
+
+        pub admin: AccountMeta,
+
+        pub eventAuthority: AccountMeta,
+
+        pub program: AccountMeta,
+    }
+
+    /// Account pubkeys for AdminRemoveProposal instruction
+    #[derive(Debug, Clone)]
+    pub struct AdminRemoveProposalInstructionAccounts {
+        pub proposal: Pubkey,
+
+        pub dao: Pubkey,
+
+        pub admin: Pubkey,
+
+        pub eventAuthority: Pubkey,
+
+        pub program: Pubkey,
+    }
+
+    impl AdminRemoveProposalInstructionAccounts {
+        pub fn new(
+            proposal: Pubkey,
+
+            dao: Pubkey,
+
+            admin: Pubkey,
+
+            eventAuthority: Pubkey,
+
+            program: Pubkey,
+        ) -> Self {
+            Self {
+                proposal,
+
+                dao,
+
+                admin,
+
+                eventAuthority,
+
+                program,
+            }
+        }
+    }
+
+    /// Instruction data for AdminRemoveProposal
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    pub struct AdminRemoveProposalInstructionData {}
+
+    impl AdminRemoveProposalInstructionData {
+        pub fn new() -> Self {
+            Self {}
+        }
+    }
+
+    /// Implementation for AdminRemoveProposalInstruction
+    impl AdminRemoveProposalInstruction {
+        fn discriminator() -> [u8; 8] {
+            [242u8, 199u8, 27u8, 28u8, 7u8, 108u8, 122u8, 73u8]
+        }
+
+        pub fn data(data: AdminRemoveProposalInstructionData) -> Self {
+            Self {
+                accounts: AdminRemoveProposalInstructionAccountMetas::default(),
+                data,
+                remaining_accounts: Vec::new(),
+            }
+        }
+
+        pub fn accounts(mut self, accounts: AdminRemoveProposalInstructionAccounts) -> Self {
+            self.accounts.proposal = AccountMeta::new(accounts.proposal, false);
+
+            self.accounts.dao = AccountMeta::new(accounts.dao, false);
+
+            self.accounts.admin = AccountMeta::new(accounts.admin, true);
+
+            self.accounts.eventAuthority =
+                AccountMeta::new_readonly(accounts.eventAuthority, false);
+
+            self.accounts.program = AccountMeta::new_readonly(accounts.program, false);
+
+            self
+        }
+
+        pub fn remaining_accounts(mut self, accounts: Vec<AccountMeta>) -> Self {
+            self.remaining_accounts = accounts;
+            self
+        }
+
+        fn to_account_metas(&self) -> Vec<AccountMeta> {
+            let mut metas = Vec::new();
+
+            metas.push(self.accounts.proposal.clone());
+
+            metas.push(self.accounts.dao.clone());
+
+            metas.push(self.accounts.admin.clone());
+
+            metas.push(self.accounts.eventAuthority.clone());
+
+            metas.push(self.accounts.program.clone());
 
             metas.extend(self.remaining_accounts.clone());
             metas
@@ -8253,7 +10070,7 @@ pub mod futarchy {
     // ------------------------------------------------------------------------
 
     /// Custom struct: CommonFields
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct CommonFields {
         pub slot: u64,
 
@@ -8275,7 +10092,7 @@ pub mod futarchy {
     }
 
     /// Custom struct: ConditionalSwapParams
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct ConditionalSwapParams {
         pub market: Market,
 
@@ -8309,7 +10126,7 @@ pub mod futarchy {
     }
 
     /// Custom struct: InitializeDaoParams
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct InitializeDaoParams {
         pub twapInitialObservation: u128,
 
@@ -8391,7 +10208,7 @@ pub mod futarchy {
     }
 
     /// Custom struct: ProvideLiquidityParams
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct ProvideLiquidityParams {
         pub quoteAmount: u64,
 
@@ -8425,7 +10242,7 @@ pub mod futarchy {
     }
 
     /// Custom struct: SpotSwapParams
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct SpotSwapParams {
         pub inputAmount: u64,
 
@@ -8447,7 +10264,7 @@ pub mod futarchy {
     }
 
     /// Custom struct: StakeToProposalParams
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct StakeToProposalParams {
         pub amount: u64,
     }
@@ -8459,7 +10276,7 @@ pub mod futarchy {
     }
 
     /// Custom struct: UnstakeFromProposalParams
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct UnstakeFromProposalParams {
         pub amount: u64,
     }
@@ -8471,7 +10288,7 @@ pub mod futarchy {
     }
 
     /// Custom struct: UpdateDaoParams
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct UpdateDaoParams {
         pub passThresholdBps: Option<u16>,
 
@@ -8541,7 +10358,7 @@ pub mod futarchy {
     }
 
     /// Custom struct: WithdrawLiquidityParams
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct WithdrawLiquidityParams {
         pub liquidityToWithdraw: u128,
 
@@ -8563,7 +10380,7 @@ pub mod futarchy {
     }
 
     /// Custom struct: InitialSpendingLimit
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct InitialSpendingLimit {
         pub amountPerMonth: u64,
 
@@ -8580,132 +10397,8 @@ pub mod futarchy {
         }
     }
 
-    /// Custom struct: OldDao
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
-    pub struct OldDao {
-        pub amm: FutarchyAmm,
-
-        pub nonce: u64,
-
-        pub daoCreator: Pubkey,
-
-        pub pdaBump: u8,
-
-        pub squadsMultisig: Pubkey,
-
-        pub squadsMultisigVault: Pubkey,
-
-        pub baseMint: Pubkey,
-
-        pub quoteMint: Pubkey,
-
-        pub proposalCount: u32,
-
-        pub passThresholdBps: u16,
-
-        pub secondsPerProposal: u32,
-
-        pub twapInitialObservation: u128,
-
-        pub twapMaxObservationChangePerUpdate: u128,
-
-        pub twapStartDelaySeconds: u32,
-
-        pub minQuoteFutarchicLiquidity: u64,
-
-        pub minBaseFutarchicLiquidity: u64,
-
-        pub baseToStake: u64,
-
-        pub seqNum: u64,
-
-        pub initialSpendingLimit: Option<InitialSpendingLimit>,
-    }
-
-    impl OldDao {
-        pub fn new(
-            amm: FutarchyAmm,
-
-            nonce: u64,
-
-            daoCreator: Pubkey,
-
-            pdaBump: u8,
-
-            squadsMultisig: Pubkey,
-
-            squadsMultisigVault: Pubkey,
-
-            baseMint: Pubkey,
-
-            quoteMint: Pubkey,
-
-            proposalCount: u32,
-
-            passThresholdBps: u16,
-
-            secondsPerProposal: u32,
-
-            twapInitialObservation: u128,
-
-            twapMaxObservationChangePerUpdate: u128,
-
-            twapStartDelaySeconds: u32,
-
-            minQuoteFutarchicLiquidity: u64,
-
-            minBaseFutarchicLiquidity: u64,
-
-            baseToStake: u64,
-
-            seqNum: u64,
-
-            initialSpendingLimit: Option<InitialSpendingLimit>,
-        ) -> Self {
-            Self {
-                amm,
-
-                nonce,
-
-                daoCreator,
-
-                pdaBump,
-
-                squadsMultisig,
-
-                squadsMultisigVault,
-
-                baseMint,
-
-                quoteMint,
-
-                proposalCount,
-
-                passThresholdBps,
-
-                secondsPerProposal,
-
-                twapInitialObservation,
-
-                twapMaxObservationChangePerUpdate,
-
-                twapStartDelaySeconds,
-
-                minQuoteFutarchicLiquidity,
-
-                minBaseFutarchicLiquidity,
-
-                baseToStake,
-
-                seqNum,
-
-                initialSpendingLimit,
-            }
-        }
-    }
-
     /// Custom struct: FutarchyAmm
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct FutarchyAmm {
         pub state: PoolState,
 
@@ -8751,7 +10444,7 @@ pub mod futarchy {
     }
 
     /// Custom struct: TwapOracle
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct TwapOracle {
         pub aggregator: u128,
 
@@ -8809,7 +10502,7 @@ pub mod futarchy {
     }
 
     /// Custom struct: Pool
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct Pool {
         pub oracle: TwapOracle,
 
@@ -8848,108 +10541,8 @@ pub mod futarchy {
         }
     }
 
-    /// Custom struct: OldProposal
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
-    pub struct OldProposal {
-        pub number: u32,
-
-        pub proposer: Pubkey,
-
-        pub timestampEnqueued: i64,
-
-        pub state: ProposalState,
-
-        pub baseVault: Pubkey,
-
-        pub quoteVault: Pubkey,
-
-        pub dao: Pubkey,
-
-        pub pdaBump: u8,
-
-        pub question: Pubkey,
-
-        pub durationInSeconds: u32,
-
-        pub squadsProposal: Pubkey,
-
-        pub passBaseMint: Pubkey,
-
-        pub passQuoteMint: Pubkey,
-
-        pub failBaseMint: Pubkey,
-
-        pub failQuoteMint: Pubkey,
-    }
-
-    impl OldProposal {
-        pub fn new(
-            number: u32,
-
-            proposer: Pubkey,
-
-            timestampEnqueued: i64,
-
-            state: ProposalState,
-
-            baseVault: Pubkey,
-
-            quoteVault: Pubkey,
-
-            dao: Pubkey,
-
-            pdaBump: u8,
-
-            question: Pubkey,
-
-            durationInSeconds: u32,
-
-            squadsProposal: Pubkey,
-
-            passBaseMint: Pubkey,
-
-            passQuoteMint: Pubkey,
-
-            failBaseMint: Pubkey,
-
-            failQuoteMint: Pubkey,
-        ) -> Self {
-            Self {
-                number,
-
-                proposer,
-
-                timestampEnqueued,
-
-                state,
-
-                baseVault,
-
-                quoteVault,
-
-                dao,
-
-                pdaBump,
-
-                question,
-
-                durationInSeconds,
-
-                squadsProposal,
-
-                passBaseMint,
-
-                passQuoteMint,
-
-                failBaseMint,
-
-                failQuoteMint,
-            }
-        }
-    }
-
     /// Custom enum: PoolState
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub enum PoolState {
         Spot { spot: Pool },
 
@@ -8957,7 +10550,7 @@ pub mod futarchy {
     }
 
     /// Custom enum: Market
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub enum Market {
         Spot,
 
@@ -8967,7 +10560,7 @@ pub mod futarchy {
     }
 
     /// Custom enum: SwapType
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub enum SwapType {
         Buy,
 
@@ -8975,7 +10568,7 @@ pub mod futarchy {
     }
 
     /// Custom enum: Token
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub enum Token {
         Base,
 
@@ -8983,7 +10576,7 @@ pub mod futarchy {
     }
 
     /// Custom enum: ProposalState
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub enum ProposalState {
         Draft { amountStaked: u64 },
 
@@ -8992,10 +10585,12 @@ pub mod futarchy {
         Passed,
 
         Failed,
+
+        Removed,
     }
 
     /// Custom struct: AmmPosition
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct AmmPosition {
         pub dao: Pubkey,
 
@@ -9017,7 +10612,7 @@ pub mod futarchy {
     }
 
     /// Custom struct: Dao
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct Dao {
         pub amm: FutarchyAmm,
 
@@ -9153,7 +10748,7 @@ pub mod futarchy {
     }
 
     /// Custom struct: Proposal
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct Proposal {
         pub number: u32,
 
@@ -9259,7 +10854,7 @@ pub mod futarchy {
     }
 
     /// Custom struct: StakeAccount
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct StakeAccount {
         pub proposal: Pubkey,
 
@@ -10077,6 +11672,10 @@ pub mod price_based_performance_package {
         pub performancePackage: AccountMeta,
 
         pub executor: AccountMeta,
+
+        pub eventAuthority: AccountMeta,
+
+        pub program: AccountMeta,
     }
 
     /// Account pubkeys for ExecuteChange instruction
@@ -10087,16 +11686,34 @@ pub mod price_based_performance_package {
         pub performancePackage: Pubkey,
 
         pub executor: Pubkey,
+
+        pub eventAuthority: Pubkey,
+
+        pub program: Pubkey,
     }
 
     impl ExecuteChangeInstructionAccounts {
-        pub fn new(changeRequest: Pubkey, performancePackage: Pubkey, executor: Pubkey) -> Self {
+        pub fn new(
+            changeRequest: Pubkey,
+
+            performancePackage: Pubkey,
+
+            executor: Pubkey,
+
+            eventAuthority: Pubkey,
+
+            program: Pubkey,
+        ) -> Self {
             Self {
                 changeRequest,
 
                 performancePackage,
 
                 executor,
+
+                eventAuthority,
+
+                program,
             }
         }
     }
@@ -10132,6 +11749,11 @@ pub mod price_based_performance_package {
 
             self.accounts.executor = AccountMeta::new(accounts.executor, true);
 
+            self.accounts.eventAuthority =
+                AccountMeta::new_readonly(accounts.eventAuthority, false);
+
+            self.accounts.program = AccountMeta::new_readonly(accounts.program, false);
+
             self
         }
 
@@ -10148,6 +11770,10 @@ pub mod price_based_performance_package {
             metas.push(self.accounts.performancePackage.clone());
 
             metas.push(self.accounts.executor.clone());
+
+            metas.push(self.accounts.eventAuthority.clone());
+
+            metas.push(self.accounts.program.clone());
 
             metas.extend(self.remaining_accounts.clone());
             metas
@@ -10181,6 +11807,10 @@ pub mod price_based_performance_package {
         pub performancePackage: AccountMeta,
 
         pub currentAuthority: AccountMeta,
+
+        pub eventAuthority: AccountMeta,
+
+        pub program: AccountMeta,
     }
 
     /// Account pubkeys for ChangePerformancePackageAuthority instruction
@@ -10189,14 +11819,30 @@ pub mod price_based_performance_package {
         pub performancePackage: Pubkey,
 
         pub currentAuthority: Pubkey,
+
+        pub eventAuthority: Pubkey,
+
+        pub program: Pubkey,
     }
 
     impl ChangePerformancePackageAuthorityInstructionAccounts {
-        pub fn new(performancePackage: Pubkey, currentAuthority: Pubkey) -> Self {
+        pub fn new(
+            performancePackage: Pubkey,
+
+            currentAuthority: Pubkey,
+
+            eventAuthority: Pubkey,
+
+            program: Pubkey,
+        ) -> Self {
             Self {
                 performancePackage,
 
                 currentAuthority,
+
+                eventAuthority,
+
+                program,
             }
         }
     }
@@ -10236,6 +11882,11 @@ pub mod price_based_performance_package {
             self.accounts.currentAuthority =
                 AccountMeta::new_readonly(accounts.currentAuthority, true);
 
+            self.accounts.eventAuthority =
+                AccountMeta::new_readonly(accounts.eventAuthority, false);
+
+            self.accounts.program = AccountMeta::new_readonly(accounts.program, false);
+
             self
         }
 
@@ -10250,6 +11901,184 @@ pub mod price_based_performance_package {
             metas.push(self.accounts.performancePackage.clone());
 
             metas.push(self.accounts.currentAuthority.clone());
+
+            metas.push(self.accounts.eventAuthority.clone());
+
+            metas.push(self.accounts.program.clone());
+
+            metas.extend(self.remaining_accounts.clone());
+            metas
+        }
+
+        pub fn instruction(&self) -> Instruction {
+            let mut buffer: Vec<u8> = Vec::new();
+
+            buffer.extend_from_slice(&Self::discriminator());
+
+            self.data.serialize(&mut buffer).unwrap();
+
+            Instruction::new_with_bytes(program_id(), &buffer, self.to_account_metas())
+        }
+    }
+
+    // ....................................................................
+    // Instruction: BurnPerformancePackage
+    // ....................................................................
+
+    /// Main instruction struct for BurnPerformancePackage
+    pub struct BurnPerformancePackageInstruction {
+        pub accounts: BurnPerformancePackageInstructionAccountMetas,
+        pub data: BurnPerformancePackageInstructionData,
+        pub remaining_accounts: Vec<AccountMeta>,
+    }
+
+    /// Account metadata for BurnPerformancePackage instruction
+    #[derive(Debug, Clone, Default)]
+    pub struct BurnPerformancePackageInstructionAccountMetas {
+        pub performancePackage: AccountMeta,
+
+        pub performancePackageTokenVault: AccountMeta,
+
+        pub admin: AccountMeta,
+
+        pub spillAccount: AccountMeta,
+
+        pub tokenMint: AccountMeta,
+
+        pub tokenProgram: AccountMeta,
+
+        pub eventAuthority: AccountMeta,
+
+        pub program: AccountMeta,
+    }
+
+    /// Account pubkeys for BurnPerformancePackage instruction
+    #[derive(Debug, Clone)]
+    pub struct BurnPerformancePackageInstructionAccounts {
+        pub performancePackage: Pubkey,
+
+        pub performancePackageTokenVault: Pubkey,
+
+        pub admin: Pubkey,
+
+        pub spillAccount: Pubkey,
+
+        pub tokenMint: Pubkey,
+
+        pub tokenProgram: Pubkey,
+
+        pub eventAuthority: Pubkey,
+
+        pub program: Pubkey,
+    }
+
+    impl BurnPerformancePackageInstructionAccounts {
+        pub fn new(
+            performancePackage: Pubkey,
+
+            performancePackageTokenVault: Pubkey,
+
+            admin: Pubkey,
+
+            spillAccount: Pubkey,
+
+            tokenMint: Pubkey,
+
+            tokenProgram: Pubkey,
+
+            eventAuthority: Pubkey,
+
+            program: Pubkey,
+        ) -> Self {
+            Self {
+                performancePackage,
+
+                performancePackageTokenVault,
+
+                admin,
+
+                spillAccount,
+
+                tokenMint,
+
+                tokenProgram,
+
+                eventAuthority,
+
+                program,
+            }
+        }
+    }
+
+    /// Instruction data for BurnPerformancePackage
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    pub struct BurnPerformancePackageInstructionData {}
+
+    impl BurnPerformancePackageInstructionData {
+        pub fn new() -> Self {
+            Self {}
+        }
+    }
+
+    /// Implementation for BurnPerformancePackageInstruction
+    impl BurnPerformancePackageInstruction {
+        fn discriminator() -> [u8; 8] {
+            [232u8, 251u8, 10u8, 122u8, 204u8, 255u8, 248u8, 208u8]
+        }
+
+        pub fn data(data: BurnPerformancePackageInstructionData) -> Self {
+            Self {
+                accounts: BurnPerformancePackageInstructionAccountMetas::default(),
+                data,
+                remaining_accounts: Vec::new(),
+            }
+        }
+
+        pub fn accounts(mut self, accounts: BurnPerformancePackageInstructionAccounts) -> Self {
+            self.accounts.performancePackage = AccountMeta::new(accounts.performancePackage, false);
+
+            self.accounts.performancePackageTokenVault =
+                AccountMeta::new(accounts.performancePackageTokenVault, false);
+
+            self.accounts.admin = AccountMeta::new(accounts.admin, true);
+
+            self.accounts.spillAccount = AccountMeta::new(accounts.spillAccount, false);
+
+            self.accounts.tokenMint = AccountMeta::new(accounts.tokenMint, false);
+
+            self.accounts.tokenProgram = AccountMeta::new_readonly(accounts.tokenProgram, false);
+
+            self.accounts.eventAuthority =
+                AccountMeta::new_readonly(accounts.eventAuthority, false);
+
+            self.accounts.program = AccountMeta::new_readonly(accounts.program, false);
+
+            self
+        }
+
+        pub fn remaining_accounts(mut self, accounts: Vec<AccountMeta>) -> Self {
+            self.remaining_accounts = accounts;
+            self
+        }
+
+        fn to_account_metas(&self) -> Vec<AccountMeta> {
+            let mut metas = Vec::new();
+
+            metas.push(self.accounts.performancePackage.clone());
+
+            metas.push(self.accounts.performancePackageTokenVault.clone());
+
+            metas.push(self.accounts.admin.clone());
+
+            metas.push(self.accounts.spillAccount.clone());
+
+            metas.push(self.accounts.tokenMint.clone());
+
+            metas.push(self.accounts.tokenProgram.clone());
+
+            metas.push(self.accounts.eventAuthority.clone());
+
+            metas.push(self.accounts.program.clone());
 
             metas.extend(self.remaining_accounts.clone());
             metas
@@ -10332,6 +12161,12 @@ pub mod price_based_performance_package {
         /// TWAP length must be greater than or equal to 1 day and less than 1
         /// year
         InvalidTwapLength = 6012,
+
+        /// Invalid admin
+        InvalidAdmin = 6013,
+
+        /// Total token amount calculation would overflow
+        TotalTokenAmountOverflow = 6014,
     }
 
     impl PricebasedperformancepackageError {
@@ -10370,6 +12205,10 @@ pub mod price_based_performance_package {
 
                 Self::InvalidTwapLength => "TWAP length must be greater than or equal to 1 day and less than 1 year",
 
+                Self::InvalidAdmin => "Invalid admin",
+
+                Self::TotalTokenAmountOverflow => "Total token amount calculation would overflow",
+
             }
         }
 
@@ -10402,6 +12241,10 @@ pub mod price_based_performance_package {
 
                 6012 => Some(Self::InvalidTwapLength),
 
+                6013 => Some(Self::InvalidAdmin),
+
+                6014 => Some(Self::TotalTokenAmountOverflow),
+
                 _ => None,
             }
         }
@@ -10424,7 +12267,7 @@ pub mod price_based_performance_package {
     // ------------------------------------------------------------------------
 
     /// Custom struct: CommonFields
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct CommonFields {
         pub slot: u64,
 
@@ -10446,7 +12289,7 @@ pub mod price_based_performance_package {
     }
 
     /// Custom struct: ChangePerformancePackageAuthorityParams
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct ChangePerformancePackageAuthorityParams {
         pub newPerformancePackageAuthority: Pubkey,
     }
@@ -10460,7 +12303,7 @@ pub mod price_based_performance_package {
     }
 
     /// Custom struct: InitializePerformancePackageParams
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct InitializePerformancePackageParams {
         pub tranches: Vec<Tranche>,
 
@@ -10506,7 +12349,7 @@ pub mod price_based_performance_package {
     }
 
     /// Custom struct: ProposeChangeParams
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct ProposeChangeParams {
         pub changeType: ChangeType,
 
@@ -10524,7 +12367,7 @@ pub mod price_based_performance_package {
     }
 
     /// Custom struct: OracleConfig
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct OracleConfig {
         pub oracleAccount: Pubkey,
 
@@ -10542,7 +12385,7 @@ pub mod price_based_performance_package {
     }
 
     /// Custom struct: Tranche
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct Tranche {
         pub priceThreshold: u128,
 
@@ -10560,7 +12403,7 @@ pub mod price_based_performance_package {
     }
 
     /// Custom struct: StoredTranche
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct StoredTranche {
         pub priceThreshold: u128,
 
@@ -10582,7 +12425,7 @@ pub mod price_based_performance_package {
     }
 
     /// Custom enum: PerformancePackageState
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub enum PerformancePackageState {
         Locked,
 
@@ -10591,12 +12434,10 @@ pub mod price_based_performance_package {
 
             startTimestamp: i64,
         },
-
-        Unlocked,
     }
 
     /// Custom enum: ChangeType
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub enum ChangeType {
         Oracle { newOracleConfig: OracleConfig },
 
@@ -10604,7 +12445,7 @@ pub mod price_based_performance_package {
     }
 
     /// Custom enum: ProposerType
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub enum ProposerType {
         Recipient,
 
@@ -10612,7 +12453,7 @@ pub mod price_based_performance_package {
     }
 
     /// Custom struct: PerformancePackage
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct PerformancePackage {
         pub tranches: Vec<StoredTranche>,
 
@@ -10706,7 +12547,7 @@ pub mod price_based_performance_package {
     }
 
     /// Custom struct: ChangeRequest
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct ChangeRequest {
         pub performancePackage: Pubkey,
 
@@ -11191,7 +13032,7 @@ pub mod bid_wall {
 
             self.accounts.payer = AccountMeta::new(accounts.payer, true);
 
-            self.accounts.authority = AccountMeta::new_readonly(accounts.authority, false);
+            self.accounts.authority = AccountMeta::new(accounts.authority, false);
 
             self.accounts.feeRecipient = AccountMeta::new_readonly(accounts.feeRecipient, false);
 
@@ -11523,9 +13364,9 @@ pub mod bid_wall {
     pub struct CollectFeesInstructionAccountMetas {
         pub bidWall: AccountMeta,
 
-        pub bidWallQuoteTokenAccount: AccountMeta,
+        pub cranker: AccountMeta,
 
-        pub feeRecipient: AccountMeta,
+        pub bidWallQuoteTokenAccount: AccountMeta,
 
         pub feeRecipientQuoteTokenAccount: AccountMeta,
 
@@ -11545,9 +13386,9 @@ pub mod bid_wall {
     pub struct CollectFeesInstructionAccounts {
         pub bidWall: Pubkey,
 
-        pub bidWallQuoteTokenAccount: Pubkey,
+        pub cranker: Pubkey,
 
-        pub feeRecipient: Pubkey,
+        pub bidWallQuoteTokenAccount: Pubkey,
 
         pub feeRecipientQuoteTokenAccount: Pubkey,
 
@@ -11566,9 +13407,9 @@ pub mod bid_wall {
         pub fn new(
             bidWall: Pubkey,
 
-            bidWallQuoteTokenAccount: Pubkey,
+            cranker: Pubkey,
 
-            feeRecipient: Pubkey,
+            bidWallQuoteTokenAccount: Pubkey,
 
             feeRecipientQuoteTokenAccount: Pubkey,
 
@@ -11585,9 +13426,9 @@ pub mod bid_wall {
             Self {
                 bidWall,
 
-                bidWallQuoteTokenAccount,
+                cranker,
 
-                feeRecipient,
+                bidWallQuoteTokenAccount,
 
                 feeRecipientQuoteTokenAccount,
 
@@ -11631,10 +13472,10 @@ pub mod bid_wall {
         pub fn accounts(mut self, accounts: CollectFeesInstructionAccounts) -> Self {
             self.accounts.bidWall = AccountMeta::new(accounts.bidWall, false);
 
+            self.accounts.cranker = AccountMeta::new_readonly(accounts.cranker, true);
+
             self.accounts.bidWallQuoteTokenAccount =
                 AccountMeta::new(accounts.bidWallQuoteTokenAccount, false);
-
-            self.accounts.feeRecipient = AccountMeta::new_readonly(accounts.feeRecipient, false);
 
             self.accounts.feeRecipientQuoteTokenAccount =
                 AccountMeta::new(accounts.feeRecipientQuoteTokenAccount, false);
@@ -11663,9 +13504,9 @@ pub mod bid_wall {
 
             metas.push(self.accounts.bidWall.clone());
 
-            metas.push(self.accounts.bidWallQuoteTokenAccount.clone());
+            metas.push(self.accounts.cranker.clone());
 
-            metas.push(self.accounts.feeRecipient.clone());
+            metas.push(self.accounts.bidWallQuoteTokenAccount.clone());
 
             metas.push(self.accounts.feeRecipientQuoteTokenAccount.clone());
 
@@ -11966,6 +13807,12 @@ pub mod bid_wall {
 
         /// Invalid input amount
         InvalidInputAmount = 6005,
+
+        /// Invalid crank address
+        InvalidCrankAddress = 6006,
+
+        /// Insufficient output amount
+        InsufficientOutputAmount = 6007,
     }
 
     impl BidwallError {
@@ -11988,6 +13835,10 @@ pub mod bid_wall {
                 Self::BidWallDepleted => "Bid wall depleted",
 
                 Self::InvalidInputAmount => "Invalid input amount",
+
+                Self::InvalidCrankAddress => "Invalid crank address",
+
+                Self::InsufficientOutputAmount => "Insufficient output amount",
             }
         }
 
@@ -12005,6 +13856,10 @@ pub mod bid_wall {
                 6004 => Some(Self::BidWallDepleted),
 
                 6005 => Some(Self::InvalidInputAmount),
+
+                6006 => Some(Self::InvalidCrankAddress),
+
+                6007 => Some(Self::InsufficientOutputAmount),
 
                 _ => None,
             }
@@ -12028,7 +13883,7 @@ pub mod bid_wall {
     // ------------------------------------------------------------------------
 
     /// Custom struct: CommonFields
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct CommonFields {
         pub slot: u64,
 
@@ -12050,7 +13905,7 @@ pub mod bid_wall {
     }
 
     /// Custom struct: InitializeBidWallArgs
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct InitializeBidWallArgs {
         pub amount: u64,
 
@@ -12084,19 +13939,25 @@ pub mod bid_wall {
     }
 
     /// Custom struct: SellTokensArgs
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct SellTokensArgs {
         pub amountIn: u64,
+
+        pub minAmountOut: u64,
     }
 
     impl SellTokensArgs {
-        pub fn new(amountIn: u64) -> Self {
-            Self { amountIn }
+        pub fn new(amountIn: u64, minAmountOut: u64) -> Self {
+            Self {
+                amountIn,
+
+                minAmountOut,
+            }
         }
     }
 
     /// Custom struct: BidWall
-    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone)]
+    #[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq)]
     pub struct BidWall {
         pub nonce: u64,
 

@@ -75,6 +75,7 @@ pub fn initialize_proposal(
     trident: &mut Trident,
     dao: Pubkey,
     squads_proposal: Pubkey,
+    squads_multisig: Pubkey,
     proposer: Pubkey,
     payer: Pubkey,
     question: Pubkey,
@@ -92,6 +93,7 @@ pub fn initialize_proposal(
     .accounts(futarchy::InitializeProposalInstructionAccounts::new(
         proposal,
         squads_proposal,
+        squads_multisig,
         dao,
         question,
         quote_vault,
@@ -159,6 +161,8 @@ pub fn stake_to_proposal(
 #[allow(clippy::too_many_arguments)]
 pub fn launch_proposal(
     trident: &mut Trident,
+    squads_multisig: Pubkey,
+    squads_proposal: Pubkey,
     dao: Pubkey,
     payer: Pubkey,
     proposal: Pubkey,
@@ -206,6 +210,8 @@ pub fn launch_proposal(
                 amm_pass_quote_vault,
                 amm_fail_base_vault,
                 amm_fail_quote_vault,
+                squads_multisig,
+                squads_proposal,
                 solana_sdk::system_program::ID,
                 TOKEN_PROGRAM_ID,
                 ASSOCIATED_TOKEN_PROGRAM_ID,
