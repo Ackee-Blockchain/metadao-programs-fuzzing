@@ -11,7 +11,7 @@ build-price-based-performance-package:
 	cargo build-sbf --manifest-path programs/price_based_performance_package/Cargo.toml --arch v2
 
 build-v07-launchpad:
-	cargo build-sbf --manifest-path programs/v07_launchpad/Cargo.toml --arch v2
+	cargo build-sbf --manifest-path programs/v07_launchpad/Cargo.toml --arch v3
 
 build-conditional-vault:
 	cargo build-sbf --manifest-path programs/conditional_vault/Cargo.toml --arch v2

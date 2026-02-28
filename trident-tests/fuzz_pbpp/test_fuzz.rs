@@ -58,7 +58,7 @@ impl FuzzTest {
         );
 
         // Two recipients + two authorities (we want 50% chance to pick the correct one in flows).
-        let recipient_a = self.payer.pubkey();
+        let recipient_a = self.trident.random_keypair().pubkey();
         let recipient_b = self.trident.random_keypair().pubkey();
         let authority_a = self.payer.pubkey();
         let authority_b = self.trident.random_keypair().pubkey();
@@ -442,5 +442,5 @@ impl FuzzTest {
 }
 
 fn main() {
-    FuzzTest::fuzz(10000, 100);
+    FuzzTest::fuzz(10000, 1000);
 }

@@ -111,10 +111,6 @@ impl FuzzTest {
         // Invariant 7: ProposeChange must not mutate the PerformancePackage state 
         // (it only creates a ChangeRequest).
         assert_eq!(
-            post_pp.seqNum, pre_pp.seqNum,
-            "PerformancePackage.seqNum must not change on ProposeChange"
-        );
-        assert_eq!(
             post_pp.recipient, pre_pp.recipient,
             "PerformancePackage.recipient must not change on ProposeChange"
         );
@@ -129,6 +125,12 @@ impl FuzzTest {
         assert_eq!(
             post_pp.oracleConfig.byteOffset, pre_pp.oracleConfig.byteOffset,
             "PerformancePackage.oracleConfig.byteOffset must not change on ProposeChange"
+        );
+
+        // Invariant 8: ProposeChange increments seqNum by exactly 1.
+        assert_eq!(
+            post_pp.seqNum, pre_pp.seqNum.checked_add(1).expect("seqNum overflow should be impossible"),
+            "PerformancePackage.seqNum must increment by exactly 1 on ProposeChange"
         );
     }
 }
