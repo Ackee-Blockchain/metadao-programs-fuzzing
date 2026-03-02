@@ -15,7 +15,7 @@ features = ["token"]
 
 - Leave the anchor lang dependency as it is.
 
-- In order to compile use `cargo build-sbf --arch sbfv1 --manifest-path programs/futarchy/Cargo.toml` (or similar for other programs) -- with solana-cli version 1.17.34.
+- In order to compile use `cargo build-sbf --manifest-path programs/futarchy/Cargo.toml --arch v2` (or similar for other programs) -- with solana-cli version 3.1.9.
 
 - Make sure that the Trident.toml points to the correct location to load the program from.
 
