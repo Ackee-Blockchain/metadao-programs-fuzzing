@@ -1,5 +1,6 @@
 use crate::common::types::futarchy;
-use crate::constants::{MAX_TRADE_TIME_FORWARD_SECONDS, MIN_TRADE_TIME_FORWARD_SECONDS};
+use crate::constants::MAX_TRADE_TIME_FORWARD_SECONDS;
+use crate::constants::MIN_TRADE_TIME_FORWARD_SECONDS;
 use crate::FuzzTest;
 use trident_fuzz::fuzzing::*;
 

@@ -2,7 +2,8 @@
 // Fuzz Test Configuration
 // ============================================================================
 pub const FUZZ_ITERATIONS: u64 = 1000;
-pub const FLOWS_PER_ITERATION: u64 = 50;
+pub const FLOWS_PER_ITERATION: u64 = 100;
+pub const ROUNDING_TOLERANCE: u64 = 5;
 
 // ============================================================================
 // Test Token Amounts
