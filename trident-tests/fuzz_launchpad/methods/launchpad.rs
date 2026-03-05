@@ -3,6 +3,7 @@ use crate::common::types::launchpad_v_7::StaticAccountsInstructionAccounts;
 use crate::common::types::launchpad_v_7::*;
 use crate::common::types::*;
 use crate::FuzzTest;
+use solana_sdk::compute_budget::ComputeBudgetInstruction;
 use trident_fuzz::fuzzing::*;
 
 use crate::common::constants::*;
@@ -741,9 +742,9 @@ impl FuzzTest {
             launchpad_v_7::program_id(),
         ))
         .instruction();
-        let res = self
-            .trident
-            .process_transaction(&[complete_launch], message);
+
+        let request_heap = ComputeBudgetInstruction::request_heap_frame((8 * 32 * 1024) as u32);
+        let res = self.trident.process_transaction(&[request_heap, complete_launch], message);
 
         if !res.is_success() {
             return;

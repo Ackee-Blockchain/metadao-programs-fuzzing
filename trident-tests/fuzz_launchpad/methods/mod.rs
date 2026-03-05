@@ -4,8 +4,8 @@ use crate::common::types::launchpad_v_7::InitializeLaunchArgs;
 use crate::FuzzTest;
 use trident_fuzz::fuzzing::*;
 
-use crate::common::pda::get_token_metadata_pda;
 use crate::common::pda::get_launch_signer_pda;
+use crate::common::pda::get_token_metadata_pda;
 use crate::common::token::initialize_associated_token_account;
 
 pub mod launchpad;
@@ -188,7 +188,6 @@ impl FuzzTest {
             }
         };
 
-
         let accumulator_activation_delay_seconds: u32 = if mostly_valid {
             self.trident.random_from_range(0u32..=seconds_for_launch)
         } else {
@@ -196,7 +195,9 @@ impl FuzzTest {
                 0 => 0,
                 1 => MAX_SECONDS_FOR_LAUNCH.saturating_add(1),
                 2 => u32::MAX,
-                _ => self.trident.random_from_range(0u32..=MAX_SECONDS_FOR_LAUNCH),
+                _ => self
+                    .trident
+                    .random_from_range(0u32..=MAX_SECONDS_FOR_LAUNCH),
             }
         };
 
@@ -294,7 +295,8 @@ impl FuzzTest {
         mint_authority: Pubkey,
     ) -> (Pubkey, Pubkey) {
         let funder = self.trident.random_keypair();
-        let funder_quote_account = initialize_associated_token_account(&mut self.trident,
+        let funder_quote_account = initialize_associated_token_account(
+            &mut self.trident,
             self.payer.pubkey(),
             quote_mint,
             funder.pubkey(),
