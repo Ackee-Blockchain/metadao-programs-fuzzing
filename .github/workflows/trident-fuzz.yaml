@@ -10,7 +10,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   SOLANA_VERSION: "v3.1.9"
-  TRIDENT_VERSION: "0.13.0-rc.1"
+  TRIDENT_VERSION: "0.13.0-rc.2"
 
 jobs:
   build:
@@ -93,7 +93,7 @@ jobs:
 
       - name: Run Fuzz Test
         working-directory: trident-tests
-        run: trident fuzz run ${{ matrix.test.target }}
+        run: trident fuzz run ${{ matrix.test.target }} -e invariants
 
   checks:
     name: Fuzz Tests (Checks)
