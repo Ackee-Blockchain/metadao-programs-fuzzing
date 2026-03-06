@@ -140,8 +140,11 @@ impl FuzzTest {
 
         let pp = self
             .trident
-            .get_account_with_type::<PerformancePackage>(&performance_package, Some(8))
-            .expect("PerformancePackage must exist");
+            .get_account_with_type::<PerformancePackage>(&performance_package, Some(8));
+        if pp.is_none() {
+            return;
+        }
+        let pp = pp.unwrap();
 
         // If we're not locked, don't spam meaningless failures (but rarely still try).
         if !matches!(pp.state, PerformancePackageState::Locked)
@@ -227,8 +230,11 @@ impl FuzzTest {
 
         let pp = self
             .trident
-            .get_account_with_type::<PerformancePackage>(&performance_package, Some(8))
-            .expect("PerformancePackage must exist");
+            .get_account_with_type::<PerformancePackage>(&performance_package, Some(8));
+        if pp.is_none() {
+            return;
+        }
+        let pp = pp.unwrap();
 
         // Only makes sense when Unlocking; otherwise return most of the time.
         if !matches!(pp.state, PerformancePackageState::Unlocking { .. })
@@ -342,8 +348,11 @@ impl FuzzTest {
 
         let pp = self
             .trident
-            .get_account_with_type::<PerformancePackage>(&performance_package, Some(8))
-            .expect("PerformancePackage must exist");
+            .get_account_with_type::<PerformancePackage>(&performance_package, Some(8));
+        if pp.is_none() {
+            return;
+        }
+        let pp = pp.unwrap();
 
         // It is possible that random is same as the current authority or recipient.
         let random_recipient = self

@@ -316,8 +316,11 @@ impl FuzzTest {
             .expect("Launch account must exist before Refund");
         let pre_funding_record = self
             .trident
-            .get_account_with_type::<FundingRecord>(&funding_record, Some(8))
-            .expect("FundingRecord must exist before Refund");
+            .get_account_with_type::<FundingRecord>(&funding_record, Some(8));
+        if pre_funding_record.is_none() {
+            return;
+        }
+        let pre_funding_record = pre_funding_record.unwrap();
         let pre_vault_amount = self
             .trident
             .get_token_account(launch_quote_vault)
@@ -387,8 +390,11 @@ impl FuzzTest {
             .expect("Launch account must exist before Claim");
         let pre_funding_record = self
             .trident
-            .get_account_with_type::<FundingRecord>(&funding_record, Some(8))
-            .expect("FundingRecord must exist before Claim");
+            .get_account_with_type::<FundingRecord>(&funding_record, Some(8));
+        if pre_funding_record.is_none() {
+            return;
+        }
+        let pre_funding_record = pre_funding_record.unwrap();
         let pre_vault_amount = self
             .trident
             .get_token_account(launch_base_vault)

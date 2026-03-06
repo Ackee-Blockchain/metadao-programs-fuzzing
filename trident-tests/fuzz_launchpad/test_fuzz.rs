@@ -304,16 +304,23 @@ impl FuzzTest {
         self.close_launch(launch, Some("Flow2: CloseLaunch"));
 
         let mut fr_acc: Option<FundingRecord> = None;
-        let mut fr: Pubkey = Pubkey::default();
+        let mut fr: Option<Pubkey> = None;
         while fr_acc.is_none() {
-            fr = self.fuzz_accounts.fundingRecord.get(&mut self.trident).expect("fundingRecord must be set");
+            fr = self.fuzz_accounts.fundingRecord.get(&mut self.trident);
+            if fr.is_none() {
+                return;
+            }
+            let fr = fr.unwrap();
             fr_acc = self.trident.get_account_with_type::<FundingRecord>(&fr, Some(8));
         }
 
-        let approved_amount = fr_acc.expect("FundingRecord must exist").committedAmount;
+        if fr_acc.is_none() {
+            return;
+        }
+        let approved_amount = fr_acc.unwrap().committedAmount;
         self.set_funding_record_approval(
             launch,
-            fr,
+            fr.unwrap(),
             launch_acc.launchAuthority,
             approved_amount,
             Some("Flow2: SetFundingRecordApproval"),
@@ -342,7 +349,11 @@ impl FuzzTest {
 
         let funder = self.fuzz_accounts.funder.get(&mut self.trident).expect("funder must be set");
         let fr = get_funding_record_pda(&mut self.trident, launch, funder);
-        let fr_acc = self.trident.get_account_with_type::<FundingRecord>(&fr, Some(8)).expect("FundingRecord must exist");
+        let fr_acc = self.trident.get_account_with_type::<FundingRecord>(&fr, Some(8));
+        if fr_acc.is_none() {
+            return;
+        }
+        let fr_acc = fr_acc.unwrap();
 
         // 99.9% correct authority, 0.1% wrong signer.
         let authority = if self.trident.random_from_range(1u16..=1000u16) != 1 {

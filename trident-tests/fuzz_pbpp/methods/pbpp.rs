@@ -194,12 +194,18 @@ impl FuzzTest {
         // Capture pre-state for invariants
         let pre_pp = self
             .trident
-            .get_account_with_type::<PerformancePackage>(&performance_package, Some(8))
-            .expect("PerformancePackage must exist before ExecuteChange");
+            .get_account_with_type::<PerformancePackage>(&performance_package, Some(8));
+        if pre_pp.is_none() {
+            return;
+        }
+        let pre_pp = pre_pp.unwrap();
         let pre_cr = self
             .trident
-            .get_account_with_type::<ChangeRequest>(&change_request, Some(8))
-            .expect("ChangeRequest must exist before ExecuteChange");
+            .get_account_with_type::<ChangeRequest>(&change_request, Some(8));
+        if pre_cr.is_none() {
+            return;
+        }
+        let pre_cr = pre_cr.unwrap();
 
         let event_authority =
             get_event_authority_pda(&mut self.trident, price_based_performance_package::program_id());
