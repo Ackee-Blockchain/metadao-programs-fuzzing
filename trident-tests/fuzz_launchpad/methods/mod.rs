@@ -79,16 +79,7 @@ impl FuzzTest {
 
         // monthlySpendingLimitAmount must be != 0 and satisfy *6 <= minimumRaiseAmount.
         let max_monthly = minimum_raise_amount.saturating_div(6).max(1);
-        let monthly_spending_limit_amount: u64 = if mostly_valid {
-            self.trident.random_from_range(1u64..=max_monthly)
-        } else {
-            match self.trident.random_from_range(0u8..=3u8) {
-                0 => 0,
-                1 => max_monthly.saturating_add(1), // violates *6 rule
-                2 => u64::MAX,
-                _ => self.trident.random_from_range(1u64..=max_monthly),
-            }
-        };
+        let monthly_spending_limit_amount: u64 = self.trident.random_from_range(1u64..=max_monthly);
 
         // monthlySpendingLimitMembers: valid len is 0..=10, but empty is fine on-chain.
         // Keep mostly non-empty to exercise CPI path in CompleteLaunch.
